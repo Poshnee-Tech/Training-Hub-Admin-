@@ -1,0 +1,911 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* One typeface, one voice.
+
+   Two problems used to live here. The next/font variables were published on
+   <html> but nothing consumed them by default, so any page that did not spell
+   out font-body / font-display fell back to the OS sans. And headings were a
+   separate display face from body copy, which read as two products stitched
+   together.
+
+   Both are settled below: Inter is the default for body and for every heading,
+   and --font-display is kept only as a name so the classes already written
+   across the app keep working without introducing a second family. Hierarchy
+   comes from size and weight. Anything that wants something else still wins,
+   because a font-* utility outranks a base-layer rule. */
+/* Two faces, five names.
+
+   Bricolage Grotesque carries display; Instrument Sans carries everything
+   else. The rest are aliases, not extra families — the pages that ask for
+   them by name keep working, and the browser downloads two fonts instead of
+   five. --font-mono-ui is no longer a monospace face, so the rule below turns
+   on tabular figures, which is the only thing the mono was really doing for
+   the number columns. */
+:root {
+  --font-mono-ui: var(--font-mono);
+  --font-serif: var(--font-display);
+  --font-display-auth: var(--font-display);
+  --font-mono-auth: var(--font-body);
+}
+
+.font-mono-ui {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+@layer base {
+  body {
+    /* Warm paper and ink, so a page that never opts into .air-scope still
+       lands on the brand rather than Tailwind's cool grey. */
+    @apply antialiased;
+    background-color: #FBF9F8;
+    color: #1E1520;
+    font-family: var(--font-body), system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /* Clicking anywhere in the portal must not raise a text caret or paint a
+     selection — the admin reads as an application, not a document. Only real
+     form fields stay selectable/editable. */
+  body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable='false']) {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+}
+
+@layer components {
+  .btn-primary { @apply inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition-colors disabled:opacity-50; }
+  .btn-secondary { @apply inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors; }
+  .btn-danger { @apply inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 transition-colors; }
+  .card { @apply bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6; }
+  .input { @apply block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-primary-600 sm:text-sm; }
+  .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+
+  .admin-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border: 1px solid;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-family: var(--font-mono-ui), ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: none;
+  }
+
+  .admin-pill-campaign-medicare {
+    background: #FBF3E2;
+    border-color: #E3C486;
+    color: #B8873A;
+  }
+
+  .admin-pill-difficulty-easy {
+    background: #E9F3E7;
+    border-color: #B8D9B4;
+    color: #5E9A63;
+  }
+
+  .admin-pill-status-active {
+    background: #E4EEF7;
+    border-color: #A9C9E3;
+    color: #3E7CA6;
+  }
+
+  .admin-pill-status-completed {
+    background: #E5EFE4;
+    border-color: #3B6B40;
+    color: #3B6B40;
+  }
+
+  .admin-pill-status-completed::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #3B6B40;
+  }
+}
+
+/* ── Best Practice Clips: warm coffee/cream theme ──────────────
+   Scoped to .bean-scope so none of this reaches the other admin pages, which
+   keep the violet `primary` palette and the light grey chrome.
+
+   Two themes, one token set. Values are space-separated RGB channels so
+   Tailwind can apply opacity modifiers (see `bean` in tailwind.config.js).
+   Light is the default; espresso is opted into with data-theme="dark" on the
+   same element, so the toggle cannot leak into the rest of the portal. */
+/* -- Library surfaces --------------------------------------------
+   The content pages (clips, knowledge, quizzes, scenarios, recordings, calls)
+   carry a little more warmth than the rest of the portal while drawing from
+   the same plum + amber palette. Scoped to .bean-scope.
+
+   One theme, same as .air-scope above — the espresso variant that used to sit
+   behind data-theme="dark" is gone with the switch. */
+.bean-scope {
+  --bean-bg: 251 249 248;      /* --paper */
+  --bean-bg-2: 255 255 255;    /* --surface */
+  --bean-card: 255 255 255;
+  --bean-card-2: 244 239 244;  /* --paper-2 */
+  --bean-line: 228 220 230;    /* --line, used as a solid border here */
+  --bean-line-2: 90 58 102;    /* --plum-3, used with alpha */
+  --bean-ink: 30 21 32;        /* --ink */
+  --bean-muted: 74 61 80;      /* --ink-2 */
+  --bean-faint: 110 102 116;   /* --muted */
+  --bean-brand: 46 27 51;      /* --plum */
+  --bean-brand-bright: 90 58 102;
+  --bean-brand-deep: 64 40 74; /* --plum-2 */
+  --bean-gold: 222 138 36;     /* --amber */
+  --bean-live: 179 38 30;      /* --error */
+
+  --bean-card-a: 1;
+  --bean-grid-a: 0.05;
+  --bean-wave-idle: rgba(90, 58, 102, 0.18);
+  --bean-shadow: 0 20px 46px -30px rgba(46, 27, 51, 0.3);
+  --bean-glow: rgba(46, 27, 51, 0.16);
+  --bean-glow-strong: rgba(46, 27, 51, 0.3);
+}
+
+
+@layer components {
+  /* Card surface. In @layer components so a card can still override the
+     default hairline with an accent border utility — as a bare rule after
+     @tailwind utilities this would win the cascade and flatten every accent. */
+  .bean-card {
+    background: rgb(var(--bean-card) / var(--bean-card-a));
+    border-color: rgb(var(--bean-line) / var(--bean-line-a, 1));
+    box-shadow: var(--bean-shadow);
+  }
+}
+
+.bean-scope .bean-card {
+  border-color: rgb(var(--bean-line));
+}
+
+/* Ambient warmth + faint grid, both fading out toward the edges. */
+.bean-glow {
+  background:
+    radial-gradient(680px 420px at 12% -5%, var(--bean-glow), transparent 60%),
+    /* Second wash tracks brand-deep — cyan on the console, deep brown on
+       cream — so the field reads as one palette in both themes. */
+    radial-gradient(560px 400px at 100% 0%, rgb(var(--bean-brand-deep) / 0.12), transparent 55%),
+    radial-gradient(700px 500px at 80% 100%, rgb(var(--bean-live) / 0.07), transparent 60%);
+}
+.bean-grid {
+  background-image:
+    linear-gradient(rgb(var(--bean-brand) / var(--bean-grid-a)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--bean-brand) / var(--bean-grid-a)) 1px, transparent 1px);
+  background-size: 52px 52px;
+  -webkit-mask-image: radial-gradient(circle at 50% 12%, #000 45%, transparent 88%);
+  mask-image: radial-gradient(circle at 50% 12%, #000 45%, transparent 88%);
+}
+
+/* The browser default focus ring is low-contrast on both cream and espresso,
+   so the page draws its own in the active theme's accent. */
+.bean-scope :focus-visible {
+  outline: 2px solid rgb(var(--bean-brand));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* The voice area expands on a max-height transition; honour a reduced-motion
+   preference by dropping every animation and transition in the scope. */
+@media (prefers-reduced-motion: reduce) {
+  .bean-scope *,
+  .bean-scope *::before,
+  .bean-scope *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Shared console theme, ported from the agent app ──────────
+   These tokens and the legacy remap below are copied VERBATIM from
+   Training-Simulator-Frontend-/src/app/globals.css so the two portals
+   cannot drift apart. If a token changes there, mirror it here rather
+   than inventing an admin-only value.
+   Everything is scoped to .air-scope, so pages outside the admin shell
+   keep the original light palette. */
+/* ── Dashboard console theme ───────────────────────────────────
+   Scoped to .air-scope so none of this reaches the light-themed pages that
+   still use `primary` / grey Tailwind classes.
+
+   Two themes, one token set. Values are space-separated RGB channels so
+   Tailwind can apply opacity modifiers (see the `air` colors in
+   tailwind.config.js). Dark is the default; the light "brown and white" theme
+   is opted into with data-theme="light" on the same element.
+
+   --air-glow-* are pre-composed rgba() strings for the shadows and radial
+   washes, which need alpha baked in rather than a Tailwind modifier. */
+/* -- Portal theme: plum + amber on warm paper --------------------
+   Scoped to .air-scope, which AdminShell owns. Every surface, rule and accent
+   in the portal reads these tokens, so the whole product re-themes from this
+   one block without a component being edited.
+
+   ONE THEME, NOT TWO. This carried a midnight-blue console palette plus a
+   warm-brown bright variant behind data-theme="light". The brand is a single
+   light scheme now, so the second set — and the switch that drove it — are
+   gone. Bringing dark back means adding a `[data-theme='dark']` block here and
+   nothing else.
+
+   Values are space-separated RGB channels, not hex, so Tailwind opacity
+   modifiers keep working: `bg-air-signal/10`, `border-air-line/25`.
+
+   --air-line holds the plum, not the finished border colour. Borders are drawn
+   as plum at low alpha, which lands on the specified #E4DCE6 over paper and
+   stays correct over a white panel too — a fixed hex could only be right on
+   one of them.
+
+   Kept in step with Training-Simulator-Frontend-/src/app/globals.css. The two
+   portals are one product; a trainer moving between them should not cross a
+   visual seam. */
+.air-scope {
+  --air-bg: 251 249 248;         /* --paper    #FBF9F8 */
+  --air-bg2: 244 239 244;        /* --paper-2  #F4EFF4 */
+  --air-panel: 255 255 255;      /* --surface  #FFFFFF */
+  --air-line: 90 58 102;         /* --plum-3, drawn at --air-line-a */
+  --air-line2: 90 58 102;
+  --air-signal: 46 27 51;        /* --plum     #2E1B33  (primary action) */
+  --air-signal-bright: 90 58 102;/* --plum-3   #5A3A66  (hover / lift) */
+  --air-cyan: 90 58 102;         /* secondary link, same family as signal */
+  --air-live: 179 38 30;         /* --error    #B3261E */
+  --air-amber: 222 138 36;       /* --amber    #DE8A24 */
+  /* Success has no token in the brand palette. A moss green keeps "passed"
+     readable as its own state while staying inside a warm scheme. */
+  --air-mint: 64 107 75;
+  --air-text: 30 21 32;          /* --ink      #1E1520 */
+  --air-muted: 74 61 80;         /* --ink-2    #4A3D50 */
+  --air-faint: 110 102 116;      /* --muted    #6E6674 */
+
+  /* Brand values used as literal colours rather than alpha bases. */
+  --plum: #2E1B33;
+  --plum-2: #40284A;
+  --plum-3: #5A3A66;
+  --amber: #DE8A24;
+  --amber-soft: #FBEEDA;
+  --amber-line: #EFDCBE;
+  --amber-deep: #8F5410;
+  --on-dark: #F6F1F7;
+  --on-dark-2: #C6B6CB;
+  --on-dark-3: #9C8CA3;
+  --field: #8E8095;
+  --field-hover: #6E6478;
+  --placeholder: #7A7080;
+
+  --air-panel-a: 1;
+  --air-line-a: 0.17;
+  --air-line2-a: 0.3;
+  --air-grid-a: 0.05;
+  --air-shadow: 0 18px 40px -28px rgba(46, 27, 51, 0.3);
+  --air-shadow-lg: 0 34px 70px -30px rgba(46, 27, 51, 0.28);
+}
+
+
+/* Surface + hairline helpers. Every card in the dashboard uses these instead
+   of a hardcoded rgba(), which is what lets one attribute flip the theme.
+
+   These MUST live in @layer components, not as bare rules. Tailwind emits
+   components before utilities, so a card can still override the default
+   hairline with an accent — `air-panel border-air-mint/30` on a cleared
+   station. As a bare rule after @tailwind utilities, .air-panel would win the
+   cascade instead and every accent border would silently flatten. */
+@layer components {
+  .air-panel {
+    background: rgb(var(--air-panel) / var(--air-panel-a));
+    border-color: rgb(var(--air-line) / var(--air-line-a));
+    box-shadow: var(--air-shadow);
+  }
+  .air-hairline {
+    border-color: rgb(var(--air-line) / var(--air-line-a));
+  }
+
+  /* The navigation rail is the brand's plum surface — the same treatment the
+     agent portal gives its sidebar, so the two apps read as one product.
+
+     Rather than restyling every child, the rail re-points the ink tokens for
+     its own subtree: the links, labels, badges and dividers already written
+     against --air-text / --air-muted / --air-line resolve light-on-plum
+     instead of dark-on-paper, and amber takes over as the accent because plum
+     on plum would disappear. No component inside the rail changed. */
+  .air-rail {
+    background: var(--plum);
+    border-color: rgb(246 241 247 / 0.12);
+
+    --air-text: 246 241 247;          /* --on-dark */
+    --air-muted: 198 182 203;         /* --on-dark-2 */
+    --air-faint: 156 140 163;         /* --on-dark-3 */
+    --air-line: 246 241 247;
+    --air-line-a: 0.14;
+    --air-panel: 246 241 247;
+    --air-panel-a: 0.09;
+    --air-signal: 222 138 36;         /* --amber */
+    --air-signal-bright: 222 138 36;
+    --air-shadow: none;
+  }
+
+  /* Pop-ups escape their surface. The account menu is a child of the plum
+     rail, so it resets the ink tokens to the page values and reads the same
+     wherever it is opened from. */
+  .air-scope [role='menu'] {
+    --air-text: 30 21 32;
+    --air-muted: 74 61 80;
+    --air-faint: 110 102 116;
+    --air-line: 90 58 102;
+    --air-line-a: 0.17;
+    --air-panel: 255 255 255;
+    --air-panel-a: 1;
+    --air-signal: 46 27 51;
+    --air-signal-bright: 90 58 102;
+    --air-shadow: 0 18px 40px -28px rgba(46, 27, 51, 0.3);
+  }
+}
+
+/* ── Legacy light content remap ────────────────────────────
+   Pages migrated into the shell still use the app's original light Tailwind
+   palette (gray/white cards, primary buttons, pastel chips). Rather than
+   rewriting every surface in every page to air tokens, the shared shell
+   remaps those classes to the active theme's tokens here — for both the
+   shell's own markup and the migrated page content.
+
+   Dark is the shell's default; most of these rules live under
+   .air-scope[data-theme='dark'] so the bright theme keeps the pages' own
+   warm-white surfaces, which already harmonise with the light shell. Un-
+   layered rules beat Tailwind's layered utilities by cascade, and every
+   selector carries .air-scope so nothing leaks outside the shell. */
+
+/* Surfaces */
+.air-scope .card {
+  background: rgb(var(--air-panel) / var(--air-panel-a));
+  border-color: rgb(var(--air-line) / var(--air-line-a));
+  box-shadow: var(--air-shadow);
+  --tw-ring-color: rgb(var(--air-line) / 0.14);
+}
+.air-scope .bg-white { background-color: rgb(var(--air-panel)); }
+.air-scope .bg-gray-50 { background-color: rgb(var(--air-bg2)); }
+.air-scope .bg-gray-100 { background-color: rgb(var(--air-line) / 0.10); }
+.air-scope .bg-gray-200 { background-color: rgb(var(--air-line) / 0.18); }
+.air-scope .bg-gray-300 { background-color: rgb(var(--air-line) / 0.28); }
+.air-scope .bg-gray-800, .air-scope .bg-gray-900 { background-color: rgb(var(--air-bg2)); }
+
+/* Neutrals */
+.air-scope .text-gray-900,
+.air-scope .text-gray-800 { color: rgb(var(--air-text)); }
+.air-scope .text-gray-700,
+.air-scope .text-gray-600,
+.air-scope .text-gray-500 { color: rgb(var(--air-muted)); }
+.air-scope .text-gray-400,
+.air-scope .text-gray-300 { color: rgb(var(--air-faint)); }
+.air-scope .border-gray-100,
+.air-scope .border-gray-200,
+.air-scope .border-gray-300 { border-color: rgb(var(--air-line) / 0.14); }
+.air-scope .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--air-line) / 0.14); }
+.air-scope .ring-gray-200,
+.air-scope .ring-gray-300 { --tw-ring-color: rgb(var(--air-line) / 0.22); }
+
+/* Primary (CallSim blue) -> signal accent */
+.air-scope .text-primary-600,
+.air-scope .text-primary-700 { color: rgb(var(--air-signal-bright)); }
+.air-scope .text-primary-900 { color: rgb(var(--air-text)); }
+.air-scope .text-primary-100,
+.air-scope .text-primary-200 { color: rgb(var(--air-signal-bright)); }
+.air-scope .bg-primary-50 { background-color: rgb(var(--air-signal) / 0.12); }
+.air-scope .bg-primary-100 { background-color: rgb(var(--air-signal) / 0.20); }
+.air-scope .border-primary-200 { border-color: rgb(var(--air-signal) / 0.30); }
+.air-scope .border-primary-400 { border-color: rgb(var(--air-signal) / 0.60); }
+.air-scope .ring-primary-500 { --tw-ring-color: rgb(var(--air-signal)); }
+
+/* Semantic tints: banners (50), chips (100) and their text/border accents */
+.air-scope .bg-blue-50 { background-color: rgb(var(--air-cyan) / 0.10); }
+.air-scope .bg-blue-100 { background-color: rgb(var(--air-cyan) / 0.16); }
+.air-scope .text-blue-500,
+.air-scope .text-blue-600,
+.air-scope .text-blue-700,
+.air-scope .text-blue-900 { color: rgb(var(--air-cyan)); }
+.air-scope .border-blue-300 { border-color: rgb(var(--air-cyan) / 0.45); }
+
+.air-scope .bg-green-50 { background-color: rgb(var(--air-mint) / 0.10); }
+.air-scope .bg-green-100 { background-color: rgb(var(--air-mint) / 0.16); }
+.air-scope .text-green-700,
+.air-scope .text-green-900 { color: rgb(var(--air-mint)); }
+
+.air-scope .bg-red-50 { background-color: rgb(var(--air-live) / 0.10); }
+.air-scope .bg-red-100 { background-color: rgb(var(--air-live) / 0.16); }
+.air-scope .text-red-500,
+.air-scope .text-red-600,
+.air-scope .text-red-700,
+.air-scope .text-red-800,
+.air-scope .text-red-900 { color: rgb(var(--air-live)); }
+.air-scope .border-red-200 { border-color: rgb(var(--air-live) / 0.30); }
+
+.air-scope .bg-amber-50 { background-color: rgb(var(--air-amber) / 0.10); }
+.air-scope .bg-amber-100 { background-color: rgb(var(--air-amber) / 0.16); }
+.air-scope .text-amber-600,
+.air-scope .text-amber-700,
+.air-scope .text-amber-800,
+.air-scope .text-amber-900,
+.air-scope .text-amber-950 { color: rgb(var(--air-amber)); }
+
+.air-scope .bg-yellow-50 { background-color: rgb(var(--air-amber) / 0.12); }
+.air-scope .bg-yellow-100 { background-color: rgb(var(--air-amber) / 0.16); }
+.air-scope .text-yellow-700 { color: rgb(var(--air-amber)); }
+
+.air-scope .bg-teal-50 { background-color: rgb(var(--air-cyan) / 0.10); }
+.air-scope .bg-teal-100 { background-color: rgb(var(--air-cyan) / 0.16); }
+.air-scope .text-teal-100,
+.air-scope .text-teal-200,
+.air-scope .text-teal-500,
+.air-scope .text-teal-600,
+.air-scope .text-teal-700,
+.air-scope .text-teal-800,
+.air-scope .text-teal-900 { color: rgb(var(--air-cyan)); }
+.air-scope .border-teal-200,
+.air-scope .border-teal-300 { border-color: rgb(var(--air-cyan) / 0.35); }
+.air-scope .ring-teal-100,
+.air-scope .ring-teal-200 { --tw-ring-color: rgb(var(--air-cyan) / 0.35); }
+
+.air-scope .bg-sky-50 { background-color: rgb(var(--air-signal) / 0.10); }
+.air-scope .bg-sky-100 { background-color: rgb(var(--air-signal) / 0.16); }
+.air-scope .text-sky-600,
+.air-scope .text-sky-700,
+.air-scope .text-sky-800 { color: rgb(var(--air-signal-bright)); }
+
+.air-scope .bg-violet-50 { background-color: rgb(var(--air-signal) / 0.10); }
+.air-scope .bg-violet-100 { background-color: rgb(var(--air-signal) / 0.16); }
+.air-scope .text-violet-500,
+.air-scope .text-violet-600,
+.air-scope .text-violet-700,
+.air-scope .text-violet-800,
+.air-scope .text-violet-900 { color: rgb(var(--air-signal-bright)); }
+.air-scope .border-violet-300 { border-color: rgb(var(--air-signal) / 0.45); }
+
+.air-scope .bg-indigo-50 { background-color: rgb(var(--air-signal) / 0.10); }
+.air-scope .bg-indigo-100 { background-color: rgb(var(--air-signal) / 0.16); }
+.air-scope .text-indigo-600,
+.air-scope .text-indigo-700,
+.air-scope .text-indigo-800 { color: rgb(var(--air-signal-bright)); }
+
+.air-scope .bg-purple-100 { background-color: rgb(var(--air-signal) / 0.16); }
+.air-scope .text-purple-600,
+.air-scope .text-purple-700 { color: rgb(var(--air-signal-bright)); }
+
+.air-scope .bg-rose-50 { background-color: rgb(var(--air-live) / 0.10); }
+.air-scope .bg-rose-100 { background-color: rgb(var(--air-live) / 0.16); }
+.air-scope .text-rose-500,
+.air-scope .text-rose-600,
+.air-scope .text-rose-700,
+.air-scope .text-rose-800,
+.air-scope .text-rose-900 { color: rgb(var(--air-live)); }
+.air-scope .border-rose-300 { border-color: rgb(var(--air-live) / 0.45); }
+
+.air-scope .bg-emerald-50 { background-color: rgb(var(--air-mint) / 0.10); }
+.air-scope .bg-emerald-100 { background-color: rgb(var(--air-mint) / 0.16); }
+.air-scope .text-emerald-600,
+.air-scope .text-emerald-700,
+.air-scope .text-emerald-800 { color: rgb(var(--air-mint)); }
+.air-scope .ring-emerald-200 { --tw-ring-color: rgb(var(--air-mint) / 0.35); }
+
+.air-scope .bg-amber-400 { background-color: rgb(var(--air-amber)); }
+.air-scope .text-amber-300 { color: rgb(var(--air-amber)); }
+.air-scope .ring-amber-200 { --tw-ring-color: rgb(var(--air-amber) / 0.35); }
+.air-scope .ring-red-200 { --tw-ring-color: rgb(var(--air-live) / 0.35); }
+
+/* Interactive chrome shared by both themes */
+.air-scope .btn-primary {
+  background-image: linear-gradient(135deg, rgb(var(--air-signal)), rgb(var(--air-signal-bright)));
+  color: #ffffff;
+  box-shadow: 0 8px 24px -10px rgb(var(--air-signal) / 0.55);
+}
+.air-scope .btn-primary:hover {
+  background-image: linear-gradient(135deg, rgb(var(--air-signal-bright)), rgb(var(--air-cyan)));
+}
+.air-scope .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.air-scope .btn-secondary {
+  background: rgb(var(--air-panel) / var(--air-panel-a));
+  color: rgb(var(--air-text));
+  --tw-ring-color: rgb(var(--air-line) / 0.35);
+}
+.air-scope .btn-secondary:hover {
+  background: rgb(var(--air-line) / 0.10);
+}
+.air-scope .input {
+  background-color: rgb(var(--air-bg2));
+  color: rgb(var(--air-text));
+  --tw-ring-color: rgb(var(--air-line) / 0.30);
+}
+.air-scope .input::placeholder {
+  color: rgb(var(--air-faint));
+}
+
+/* The dashboard is animation-heavy (pulsing node, waveform, blinking
+   indicators); honour a reduced-motion preference by stopping all of it. */
+@media (prefers-reduced-motion: reduce) {
+  .air-scope *,
+  .air-scope *::before,
+  .air-scope *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Best Practice Clips: the library surfaces, on the brand palette.
+   Scoped to .bean-scope. One theme — the console variant that used to sit
+   under `.air-scope .bean-scope` went with the dark/bright switch. */
+.bean-scope {
+  --bean-bg: 251 249 248;      /* --paper */
+  --bean-bg-2: 255 255 255;    /* --surface */
+  --bean-card: 255 255 255;
+  --bean-card-2: 244 239 244;  /* --paper-2 */
+  --bean-line: 228 220 230;    /* --line */
+  --bean-line-2: 90 58 102;    /* --plum-3, used with alpha */
+  --bean-ink: 30 21 32;        /* --ink */
+  --bean-muted: 74 61 80;      /* --ink-2 */
+  --bean-faint: 110 102 116;   /* --muted */
+  --bean-brand: 46 27 51;      /* --plum */
+  --bean-brand-bright: 90 58 102;
+  --bean-brand-deep: 64 40 74; /* --plum-2 */
+  --bean-gold: 222 138 36;     /* --amber */
+  --bean-live: 179 38 30;      /* --error */
+
+  --bean-card-a: 1;
+  --bean-grid-a: 0.05;
+  --bean-wave-idle: rgba(90, 58, 102, 0.18);
+  --bean-shadow: 0 20px 46px -30px rgba(46, 27, 51, 0.3);
+  --bean-glow: rgba(46, 27, 51, 0.16);
+  --bean-glow-strong: rgba(46, 27, 51, 0.3);
+
+  /* Per-section clip accents, drawn from the plum + amber family so a long
+     list of sections still reads as one palette rather than a colour wheel. */
+  --clip-acc-1: 46 27 51;
+  --clip-acc-2: 222 138 36;
+  --clip-acc-3: 143 84 16;
+  --clip-acc-4: 90 58 102;
+  --clip-acc-5: 64 40 74;
+  --clip-acc-6: 64 107 75;
+}
+
+
+@layer components {
+  .bean-card {
+    background: rgb(var(--bean-card) / var(--bean-card-a));
+    border-color: rgb(var(--bean-line) / var(--bean-line-a, 1));
+    box-shadow: var(--bean-shadow);
+  }
+}
+
+.bean-scope .bean-card {
+  border-color: rgb(var(--bean-line));
+}
+
+
+.bean-glow {
+  background:
+    radial-gradient(680px 420px at 12% -5%, var(--bean-glow), transparent 60%),
+    radial-gradient(560px 400px at 100% 0%, rgb(var(--bean-brand-deep) / 0.12), transparent 55%),
+    radial-gradient(700px 500px at 80% 100%, rgb(var(--bean-live) / 0.07), transparent 60%);
+}
+
+.bean-grid {
+  background-image:
+    linear-gradient(rgb(var(--bean-brand) / var(--bean-grid-a)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--bean-brand) / var(--bean-grid-a)) 1px, transparent 1px);
+  background-size: 52px 52px;
+  -webkit-mask-image: radial-gradient(circle at 50% 12%, #000 45%, transparent 88%);
+  mask-image: radial-gradient(circle at 50% 12%, #000 45%, transparent 88%);
+}
+
+.bean-scope :focus-visible {
+  outline: 2px solid rgb(var(--bean-brand));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bean-scope *,
+  .bean-scope *::before,
+  .bean-scope *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Keyboard focus. The browser default ring is low-contrast on both the near
+   black and the warm white, so the console draws its own in the active theme's
+   accent. :focus-visible only — mouse clicks stay clean. */
+.air-scope :focus-visible {
+  outline: 2px solid rgb(var(--air-signal-bright));
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* Progress ring. A conic-gradient sweep driven by --p (0-100), with the
+   centre punched out by an inset disc — no SVG and no extra dependency. */
+.air-ring {
+  background: conic-gradient(
+    from -90deg,
+    rgb(var(--air-signal)) calc(var(--p) * 1%),
+    rgb(var(--air-line) / 0.18) 0
+  );
+}
+.air-ring::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 9999px;
+  background: rgb(var(--air-bg2));
+  box-shadow: inset 0 0 14px rgb(var(--air-signal) / 0.25);
+}
+
+
+/* Switchboard grid — the admin counterpart to the agent floor's tech grid.
+   Denser and squarer, so the console reads as a patch panel rather than a
+   duplicate of the agent view. */
+.air-switchgrid {
+  background-image:
+    linear-gradient(rgb(var(--air-line) / var(--air-grid-a)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--air-line) / var(--air-grid-a)) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(circle at 30% 0%, #000 35%, transparent 85%);
+  mask-image: radial-gradient(circle at 30% 0%, #000 35%, transparent 85%);
+}
+
+/* Keyboard focus inside the admin shell, in the active theme's accent. */
+.air-scope :focus-visible {
+  outline: 2px solid rgb(var(--air-signal-bright));
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .air-scope *,
+  .air-scope *::before,
+  .air-scope *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Agent ledger: warm paper & brass ─────────────────────────
+   Scoped to .ledger-scope so only the agents section picks it up; every other
+   admin page keeps the air console tokens above.
+
+   Same shape as .bean-scope: light "paper" is the default, and the admin
+   shell's data-theme="dark" switches the very same tokens to a warm espresso
+   console (brass in place of the console's signal blue), so the ledger follows
+   the admin's dark/bright toggle with no per-component branch. Values are
+   space-separated RGB channels so Tailwind opacity modifiers keep working
+   (see `ledger` in tailwind.config.js). */
+.ledger-scope {
+  --ledger-bg: 251 249 248;       /* --paper */
+  --ledger-bg2: 255 255 255;      /* --surface */
+  --ledger-panel: 255 255 255;
+  --ledger-line: 228 220 230;     /* --line */
+  --ledger-line2: 240 234 241;    /* --line-2 */
+  --ledger-ink: 30 21 32;         /* --ink */
+  --ledger-muted: 74 61 80;       /* --ink-2 */
+  --ledger-faint: 110 102 116;    /* --muted */
+  --ledger-brand: 46 27 51;       /* --plum */
+  --ledger-brand-bright: 90 58 102;
+  --ledger-brand-deep: 64 40 74;  /* --plum-2 */
+  --ledger-teal: 90 58 102;       /* no teal in the brand — plum-3 stands in */
+  --ledger-gold: 222 138 36;      /* --amber */
+  --ledger-good: 64 107 75;
+  --ledger-good-bg: 233 240 234;
+  --ledger-bad: 179 38 30;        /* --error */
+  --ledger-bad-bg: 248 229 227;
+
+  --ledger-panel-a: 1;
+  --ledger-line-a: 1;
+  --ledger-shadow: 0 1px 2px rgba(46, 27, 51, 0.06), 0 6px 16px rgba(46, 27, 51, 0.06);
+}
+
+@layer components {
+  /* Ledger card surface. Lives in @layer components so a row can still
+     override the default hairline with an accent utility. */
+  .ledger-panel {
+    background: rgb(var(--ledger-panel) / var(--ledger-panel-a));
+    border-color: rgb(var(--ledger-line) / var(--ledger-line-a));
+    box-shadow: var(--ledger-shadow);
+  }
+
+  /* The ledger table — one grid, shared by the header row and every agent row,
+     so columns stay in lockstep. Full width of its container; on narrow
+     screens the wrapper scrolls the whole grid (header included), so the two
+     rows can never drift apart. */
+  .ledger-grid {
+    /* Actions is wider than it looks like it needs: the status control is a
+       worded button, and grows again while it is asking to be confirmed. */
+    grid-template-columns: 2.2fr 2.1fr 0.9fr 0.9fr 1.3fr 1fr 2.4fr;
+    min-width: 1040px;
+  }
+
+  /* Assignments page variant of the same ledger table — different column mix,
+     same lockstep behaviour. Actions stays narrow since it only ever holds a
+     single Cancel link. */
+  .ledger-grid-assign {
+    grid-template-columns: 1.6fr 2.2fr 1fr 1fr 1.4fr 1fr 0.5fr;
+    min-width: 960px;
+  }
+
+  .ledger-btn-secondary {
+    background: rgb(var(--ledger-bg2));
+    color: rgb(var(--ledger-ink));
+    border-color: rgb(var(--ledger-line));
+  }
+  .ledger-btn-secondary:hover {
+    background: rgb(var(--ledger-line) / 0.35);
+  }
+
+  .ledger-btn-primary {
+    background: rgb(var(--ledger-brand));
+    color: #fffdf8;
+    box-shadow: 0 6px 14px -8px rgb(var(--ledger-brand) / 0.8);
+  }
+  .ledger-btn-primary:hover {
+    background: rgb(var(--ledger-brand-deep));
+  }
+  .ledger-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ledger-action-btn {
+    border-color: rgb(var(--ledger-line));
+    color: rgb(var(--ledger-muted));
+  }
+  .ledger-action-btn:hover {
+    border-color: rgb(var(--ledger-brand));
+    color: rgb(var(--ledger-brand-deep));
+  }
+  .ledger-action-btn.danger:hover {
+    border-color: rgb(var(--ledger-bad));
+    color: rgb(var(--ledger-bad));
+  }
+
+  .ledger-input {
+    background-color: rgb(var(--ledger-bg2));
+    border-color: rgb(var(--ledger-line));
+    color: rgb(var(--ledger-ink));
+  }
+  .ledger-input::placeholder {
+    color: rgb(var(--ledger-faint));
+  }
+
+  /* Row hover reads as flipping the page — a second warm surface, never the
+     console blue. */
+  .ledger-row:hover {
+    background: rgb(var(--ledger-bg2));
+  }
+}
+
+.ledger-scope :focus-visible {
+  outline: 2px solid rgb(var(--ledger-brand));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger-scope *,
+  .ledger-scope *::before,
+  .ledger-scope *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Dashboard interaction helpers ─────────────────────────────
+   Pointer-tracked spotlight. The card writes the cursor position into
+   --mx/--my (see spotProps in dashboard/page.tsx); this paints one soft
+   signal wash under the pointer — depth without a second border colour. */
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    340px circle at var(--mx, 50%) var(--my, 50%),
+    rgb(var(--air-signal) / 0.09),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* Sparklines ink themselves on mount via stroke-dashoffset (pathLength is
+   normalised to 1). Under prefers-reduced-motion every animation is switched
+   off globally, which would leave the line parked at its hidden start offset —
+   pin it fully drawn instead of showing nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .spark-path {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+}
+
+/* ── Ember ───────────────────────────────────────────────────────
+   .ember-scope used to re-target the shared --air-* tokens around the
+   dashboard's <main>, giving that one page a warm cream palette and — inside
+   .air-scope, which is always the case — an espresso dark one. That is why
+   the dashboard stayed dark and brown after the rebrand: this block was
+   overriding the brand tokens for the whole page.
+
+   There is one palette now, so the override is gone. The class is left on the
+   markup deliberately: it costs nothing, it still scopes the pill rule below,
+   and it inherits the brand tokens straight from .air-scope. */
+
+/* LIVE pills carry the accent rather than the legacy pastel blue. */
+.ember-scope .admin-pill-status-active {
+  background: rgb(var(--air-amber) / 0.14);
+  border-color: rgb(var(--air-amber) / 0.4);
+  color: var(--amber-deep);
+}
+
+/* Scroll box inside a bean card (clip transcripts) — thin, themed thumb. */
+.bean-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--bean-line-2)) transparent;
+}
+.bean-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.bean-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bean-scroll::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--bean-line-2));
+  border-radius: 999px;
+}
+.bean-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--bean-brand) / 0.55);
+}
+
+/**
+ * ── THE ADMIN SIDEBAR'S SCROLL RAIL ────────────────────────────────────────
+ *
+ * The nav has fourteen items across four groups, so it genuinely has to scroll
+ * on a laptop viewport. What it must NOT do is render the platform's default
+ * light scrollbar down the middle of a dark plum sidebar, which is what it was
+ * doing — a bright grey channel with a visible thumb, permanently on because
+ * macOS shows overlay scrollbars while a mouse is connected.
+ *
+ * Scrolling is kept and only the CHROME is removed: the content still scrolls
+ * by wheel, trackpad, keyboard and touch, and the scroll container is still a
+ * scroll container for assistive technology. Nothing is clipped or unreachable.
+ */
+.sidebar-scroll {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* legacy Edge */
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

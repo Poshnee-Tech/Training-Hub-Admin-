@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+*.log
+.env.local
+
+# Production builds, kept out of the dev server directory.
+.next-build/
+tsconfig.tsbuildinfo
