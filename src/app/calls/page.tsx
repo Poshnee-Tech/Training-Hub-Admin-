@@ -15,8 +15,6 @@ function campaignChip(campaign?: string) {
       return 'border-bean-brand/35 bg-bean-brand/10 text-bean-brand';
     case 'MEDICARE':
       return 'admin-pill-campaign-medicare';
-    case 'MED_ALERT':
-      return 'border-bean-live/35 bg-bean-live/10 text-bean-live';
     default:
       return 'border-bean-line bg-bean-card2 text-bean-muted';
   }
@@ -258,7 +256,6 @@ export default function CallsPage() {
                   <option value="">All campaigns</option>
                   <option value="ACA">ACA</option>
                   <option value="MEDICARE">Medicare</option>
-                  <option value="MED_ALERT">Med Alert</option>
                 </select>
               </div>
 

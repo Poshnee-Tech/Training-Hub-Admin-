@@ -22,7 +22,6 @@ const CAMPAIGNS = [
   { value: '', label: 'All campaigns' },
   { value: 'ACA', label: 'ACA' },
   { value: 'MEDICARE', label: 'Medicare' },
-  { value: 'MED_ALERT', label: 'Med Alert' },
 ] as const;
 
 type PronunciationSection = 'PHRASES' | 'AGENTS';

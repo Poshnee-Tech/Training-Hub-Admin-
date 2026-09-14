@@ -11,7 +11,7 @@
  *
  *   GET /api/admin/analytics/overview?campaign=&agentId=
  *   GET /api/admin/analytics/trends?campaign=&agentId=
- *   GET /api/admin/analytics/campaign/{ACA,MEDICARE,MED_ALERT}?agentId=
+ *   GET /api/admin/analytics/campaign/{ACA,MEDICARE}?agentId=
  *
  * The two query parameters are new; the response shapes are unchanged, and
  * omitting both gives exactly the floor-wide numbers this page showed before.
@@ -53,7 +53,7 @@ import {
   passRate,
 } from '@/lib/analytics-series';
 
-const ALL_CAMPAIGNS = ['ACA', 'MEDICARE', 'MED_ALERT'] as const;
+const ALL_CAMPAIGNS = ['ACA', 'MEDICARE'] as const;
 
 export default function AnalyticsPage() {
   const { token, loadFromStorage } = useAuthStore();

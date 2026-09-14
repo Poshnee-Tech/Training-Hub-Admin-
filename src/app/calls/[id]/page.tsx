@@ -54,7 +54,6 @@ function campaignChip(campaign?: string) {
   switch (campaign) {
     case 'ACA': return 'border-bean-brand/35 bg-bean-brand/10 text-bean-brand';
     case 'MEDICARE': return 'admin-pill-campaign-medicare';
-    case 'MED_ALERT': return 'border-bean-live/35 bg-bean-live/10 text-bean-live';
     default: return 'border-bean-line bg-bean-card2 text-bean-muted';
   }
 }

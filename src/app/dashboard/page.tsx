@@ -568,13 +568,11 @@ const PASSING_SCORE = 60;
 const CAMPAIGN_DOT: Record<string, string> = {
   ACA: 'bg-air-signal',
   MEDICARE: 'bg-[#8F5410]',
-  MED_ALERT: 'bg-air-amber',
 };
 
 const CAMPAIGN_PILL: Record<string, string> = {
   ACA: 'border-air-signal/35 bg-air-signal/[0.08] text-air-signal-bright',
   MEDICARE: 'admin-pill-campaign-medicare',
-  MED_ALERT: 'border-air-amber/35 bg-air-amber/[0.08] text-air-amber',
 };
 
 const DIFFICULTY_PILL: Record<string, string> = {

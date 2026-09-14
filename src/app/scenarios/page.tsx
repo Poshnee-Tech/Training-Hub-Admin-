@@ -55,6 +55,10 @@ export default function ScenariosManagementPage() {
   const [filterDifficulty, setFilterDifficulty] = useState('ALL');
   const [search, setSearch] = useState('');
 
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  /** True once the author edits VOICE by hand; the draft stops then, for good. */
+  const [voiceTouched, setVoiceTouched] = useState(false);
+
   const [form, setForm] = useState({
     campaign: 'ACA',
     difficulty: 'EASY',
@@ -70,7 +74,6 @@ export default function ScenariosManagementPage() {
     personaBackstory: '',
     customerIntent: '',
 
-    hiddenObjections: [''],
     conversationRules: [''],
 
     destinationOutcome: '',
@@ -176,7 +179,6 @@ export default function ScenariosManagementPage() {
       personaBackstory: '',
       customerIntent: '',
 
-      hiddenObjections: [''],
       conversationRules: [''],
 
       destinationOutcome: '',
@@ -186,6 +188,8 @@ export default function ScenariosManagementPage() {
     setFacts(null);
     setFactLabels({});
     setFindings([]);
+    setShowAdvanced(false);
+    setVoiceTouched(false);
     setEditingId(null);
     setShowForm(false);
     setSaveError(null);
@@ -228,11 +232,6 @@ export default function ScenariosManagementPage() {
       customerIntent:
         full.customerIntent ?? '',
 
-      hiddenObjections:
-        full.hiddenObjections?.length
-          ? full.hiddenObjections
-          : [''],
-
       conversationRules:
         full.conversationRules?.length
           ? full.conversationRules
@@ -266,6 +265,16 @@ export default function ScenariosManagementPage() {
       setFactLabels({});
     }
 
+    // An existing persona's own voice is the author's, never a draft.
+    setVoiceTouched(true);
+
+    // Never hide detail from someone editing a persona that already has it.
+    setShowAdvanced(
+      Boolean(
+        (full.personaVoice ?? '').trim(),
+      ),
+    );
+
     setEditingId(s.id);
     setShowForm(true);
 
@@ -274,6 +283,54 @@ export default function ScenariosManagementPage() {
       behavior: 'smooth',
     });
   }
+
+  useEffect(() => {
+    if (!showForm) return;
+    if (voiceTouched) return;
+    if (editingId) return; // an authored voice is never overwritten
+
+    const draft = draftVoice(
+      form.personaPersonality,
+      form.personaMood,
+      p,
+    );
+
+    if (!draft) return;
+    if (draft === form.personaVoice) return;
+
+    setForm((prev) => ({
+      ...prev,
+      personaVoice: draft,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    showForm,
+    voiceTouched,
+    editingId,
+    form.personaPersonality,
+    form.personaMood,
+    form.personaGender,
+  ]);
+
+  /**
+   * QUALIFICATION SHOULD ARRIVE FILLED IN.
+   *
+   * The answers are derivable from campaign + state, so making the author press
+   * a button to get them turned a review step into a configuration step. It
+   * fills once, as soon as a state is chosen on a persona that has no answers
+   * yet, and never overwrites answers that already exist — re-filling stays a
+   * deliberate press of the button.
+   */
+  useEffect(() => {
+    if (!token) return;
+    if (!showForm) return;
+    if (facts) return;
+    if (!form.state.trim()) return;
+    if (busyAuto) return;
+
+    void runAutofill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, showForm, facts, form.state, form.campaign]);
 
   async function runAutofill() {
     if (!token) return;
@@ -411,9 +468,6 @@ export default function ScenariosManagementPage() {
         personaAge: Number(
           form.personaAge,
         ),
-
-        hiddenObjections:
-          form.hiddenObjections.filter(Boolean),
 
         conversationRules:
           form.conversationRules.filter(Boolean),
@@ -626,9 +680,6 @@ export default function ScenariosManagementPage() {
                           Medicare
                         </option>
 
-                        <option value="MED_ALERT">
-                          Med Alert
-                        </option>
                       </select>
                     </FieldBlock>
 
@@ -724,8 +775,8 @@ export default function ScenariosManagementPage() {
                 {/* Profile */}
                 <EditorSection
                   number="02"
-                  title="Customer profile"
-                  description="Basic identity, location and temperament."
+                  title="Customer basics"
+                  description="Who they are and how they come across."
                 >
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FieldBlock label="Name">
@@ -910,54 +961,11 @@ export default function ScenariosManagementPage() {
                   </div>
                 </EditorSection>
 
-                {/* Voice */}
-                <EditorSection
-                  number="03"
-                  title="Behaviour & voice"
-                  description="Describe how this customer sounds and reacts during the call."
-                  action={
-                    form.personaGender ? (
-                      <Btn
-                        type="button"
-                        onClick={() =>
-                          void previewVoice()
-                        }
-                      >
-                        Preview voice
-                      </Btn>
-                    ) : undefined
-                  }
-                >
-                  <FieldBlock
-                    label={`${p.Possessive} voice`}
-                    hint="Describe speaking style, sentence length, habits and reactions. Keep circumstances in the backstory."
-                  >
-                    <textarea
-                      className={`${EDITOR_FIELD} min-h-[95px] resize-y`}
-                      placeholder={`Example: ${p.Subject} speaks in short sentences and becomes more direct when annoyed.`}
-                      value={
-                        form.personaVoice
-                      }
-                      onChange={(
-                        e,
-                      ) =>
-                        setForm({
-                          ...form,
-                          personaVoice:
-                            e
-                              .target
-                              .value,
-                        })
-                      }
-                    />
-                  </FieldBlock>
-                </EditorSection>
-
                 {/* Context */}
                 <EditorSection
-                  number="04"
-                  title="Customer context"
-                  description="Give the persona concrete circumstances and a reason to stay engaged."
+                  number="03"
+                  title="Their life and what they want"
+                  description="Concrete circumstances, and the reason they stay on the line."
                 >
                   <div className="space-y-4">
                     <FieldBlock
@@ -1016,11 +1024,15 @@ export default function ScenariosManagementPage() {
                   </div>
                 </EditorSection>
 
-                {/* Conversation questions */}
+                {/* Conversation agenda — the ONE authored source of concerns.
+                    Things this person may naturally want to discuss or know.
+                    Not a checklist, not mandatory on every call; once one is
+                    answered or validly deferred the customer leaves it there
+                    unless something new comes up. */}
                 <EditorSection
-                  number="05"
-                  title="Questions they may raise"
-                  description="Natural questions the customer should bring into the conversation when appropriate."
+                  number="04"
+                  title="Conversation agenda"
+                  description={`Optional. Things they may naturally want to discuss or know. House style is to write each as what they want to know ("Wants to know whether their doctor stays in network"). Not a checklist and not required on every call: once one is answered, or validly deferred to someone who will check it, they leave it there unless something new comes up.`}
                 >
                   <div className="space-y-2">
                     {form.conversationRules.map(
@@ -1041,7 +1053,7 @@ export default function ScenariosManagementPage() {
 
                           <input
                             className="min-w-0 flex-1 bg-transparent px-1 text-[13px] text-bean-ink outline-none placeholder:text-bean-faint"
-                            placeholder="e.g. Asks whether their doctor is in network"
+                            placeholder="e.g. Wants to know whether their doctor is in network"
                             value={
                               rule
                             }
@@ -1119,9 +1131,9 @@ export default function ScenariosManagementPage() {
 
                 {/* Qualification */}
                 <EditorSection
-                  number="06"
+                  number="05"
                   title="Qualification answers"
-                  description="Review the exact answers this persona can give to the qualification set."
+                  description="Filled in from the campaign and state. Review and edit anything that is wrong."
                   action={
                     <Btn
                       type="button"
@@ -1167,6 +1179,7 @@ export default function ScenariosManagementPage() {
                       </p>
                     </div>
                   ) : (
+                    <>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {Object.entries(
                         facts,
@@ -1211,8 +1224,159 @@ export default function ScenariosManagementPage() {
                         ),
                       )}
                     </div>
+
+                    {/* Autofill leaves a default OUT where the backstory already
+                        speaks to it, so the author is asked rather than guessed
+                        at. Without this the validator could name a missing answer
+                        the form gave no way to supply. */}
+                    {Object.keys(
+                      factLabels,
+                    ).some(
+                      (k) =>
+                        !(
+                          k in
+                          facts
+                        ),
+                    ) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-bean-line bg-bean-bg/40 p-3">
+                        <span className="text-[11.5px] font-semibold text-bean-muted">
+                          Add
+                          another
+                          answer
+                        </span>
+
+                        <select
+                          className={`${EDITOR_FIELD} h-8 w-auto min-w-[190px] py-0 text-[12px]`}
+                          value=""
+                          onChange={(
+                            e,
+                          ) => {
+                            const k =
+                              e
+                                .target
+                                .value;
+
+                            if (!k)
+                              return;
+
+                            setFacts(
+                              {
+                                ...facts,
+                                [k]: '',
+                              },
+                            );
+                          }}
+                        >
+                          <option value="">
+                            Choose
+                            a
+                            question…
+                          </option>
+
+                          {Object.keys(
+                            factLabels,
+                          )
+                            .filter(
+                              (k) =>
+                                !(
+                                  k in
+                                  facts
+                                ),
+                            )
+                            .map(
+                              (k) => (
+                                <option
+                                  key={
+                                    k
+                                  }
+                                  value={
+                                    k
+                                  }
+                                >
+                                  {factLabels[
+                                    k
+                                  ] ??
+                                    k}
+                                </option>
+                              ),
+                            )}
+                        </select>
+                      </div>
+                    )}
+                    </>
                   )}
                 </EditorSection>
+
+                {/* ── ADVANCED ────────────────────────────────────────────
+                    Everything a normal persona does not need. Collapsed by
+                    default so the common path is short; nothing is removed, and
+                    it opens itself when the persona being edited already has
+                    something in here, so existing detail is never hidden from
+                    whoever is editing it. */}
+                <AdvancedPanel
+                  open={showAdvanced}
+                  count={
+                    form.personaVoice.trim()
+                      ? 1
+                      : 0
+                  }
+                  onToggle={() =>
+                    setShowAdvanced(
+                      (v) =>
+                        !v,
+                    )
+                  }
+                >
+                  <div className="space-y-4">
+                    <FieldBlock
+                      label={`${p.Possessive} voice`}
+                      hint={
+                        voiceTouched ||
+                        editingId
+                          ? 'Speaking style, sentence length, habits and reactions. Circumstances belong in their life above.'
+                          : 'Drafted from the personality and mood above — edit it to make them sound like themselves.'
+                      }
+                    >
+                      <textarea
+                        className={`${EDITOR_FIELD} min-h-[95px] resize-y`}
+                        placeholder={`Example: ${p.Subject} speaks in short sentences and becomes more direct when annoyed.`}
+                        value={
+                          form.personaVoice
+                        }
+                        onChange={(
+                          e,
+                        ) => {
+                          setVoiceTouched(
+                            true,
+                          );
+
+                          setForm({
+                            ...form,
+                            personaVoice:
+                              e
+                                .target
+                                .value,
+                          });
+                        }}
+                      />
+
+                      {form.personaGender && (
+                        <div className="mt-2">
+                          <Btn
+                            type="button"
+                            onClick={() =>
+                              void previewVoice()
+                            }
+                          >
+                            Preview
+                            voice
+                          </Btn>
+                        </div>
+                      )}
+                    </FieldBlock>
+
+                  </div>
+                </AdvancedPanel>
 
                 {/* Validation findings */}
                 {findings.length >
@@ -1401,9 +1565,6 @@ export default function ScenariosManagementPage() {
                   Medicare
                 </option>
 
-                <option value="MED_ALERT">
-                  Med Alert
-                </option>
               </select>
 
               <select
@@ -1611,6 +1772,112 @@ export default function ScenariosManagementPage() {
 /* ─────────────────────────────────────────────
    Editor components
 ───────────────────────────────────────────── */
+
+/**
+ * ADVANCED, COLLAPSED BY DEFAULT.
+ *
+ * Not a lesser section — a rarer one. Quick Create covers what every persona
+ * needs; this holds what only some do. It reports how many advanced values are
+ * set so an editor can see there is something inside without opening it, and
+ * the page opens it automatically when an existing persona already has any.
+ */
+/**
+ * A STARTING VOICE, SO ADVANCED CAN STAY CLOSED.
+ *
+ * VOICE is a hard requirement in the backend validator — an empty one is an
+ * error, not a warning — so moving the box behind Advanced would have made a
+ * quick-created persona unsaveable without opening it. Rather than drag the
+ * field back into the common path, the form writes a first draft from the
+ * personality and mood the author has already given, which is where a voice
+ * would have come from anyway.
+ *
+ * It is a DRAFT and nothing more: it stops the moment the author types in the
+ * box, it never touches a persona that already has one, and it is plain
+ * description with no imperative in it, because `imperativeFindings` rejects
+ * "never says…" and its family in this field.
+ */
+function draftVoice(
+  personality: string,
+  mood: string,
+  pr: ReturnType<typeof pronounsFor>,
+): string {
+  const traits = personality.trim().replace(/\.$/, '');
+  const feel = mood.trim().replace(/\.$/, '');
+  if (!traits && !feel) return '';
+
+  const opener = traits
+    ? `${traits.charAt(0).toUpperCase()}${traits.slice(1)}, and it comes through in how ${pr.subject} ${pr.verb('talk')}.`
+    : `${pr.Subject} ${pr.verb('talk')} the way most people do on the phone.`;
+
+  return [
+    opener,
+    feel
+      ? `${pr.Subject} picked up the phone ${feel}, and that colours the first few exchanges.`
+      : '',
+    `Ordinary spoken sentences, a little loose, and ${pr.subject} ${pr.verb('stop')} once the point is made.`,
+    `Pleased, ${pr.subject} ${pr.verb('warm')} up and ${pr.verb('offer')} a bit more than asked; annoyed, ${pr.subject} ${pr.verb('get')} shorter rather than louder.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function AdvancedPanel({
+  open,
+  count,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  count: number;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[18px] border border-bean-line bg-bean-card">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start justify-between gap-3 p-5 text-left"
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 grid h-7 min-w-7 place-items-center rounded-lg bg-bean-card2 px-1.5 text-[12px] font-bold text-bean-faint">
+            {open ? '−' : '+'}
+          </span>
+
+          <div>
+            <h3 className="text-[14px] font-bold tracking-[-0.01em] text-bean-ink">
+              Advanced persona settings
+            </h3>
+
+            <p className="mt-1 max-w-2xl text-[11.5px] leading-relaxed text-bean-muted">
+              Speaking style and unspoken objections. Optional — a persona is
+              complete without them.
+            </p>
+          </div>
+        </div>
+
+        <span className="mt-0.5 flex shrink-0 items-center gap-2">
+          {count > 0 && (
+            <span className="rounded-full bg-bean-card2 px-2 py-0.5 text-[10.5px] font-bold text-bean-muted">
+              {count} set
+            </span>
+          )}
+
+          <span className="text-[11.5px] font-semibold text-bean-brand">
+            {open ? 'Hide' : 'Show'}
+          </span>
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-bean-line p-5">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function EditorSection({
   number,

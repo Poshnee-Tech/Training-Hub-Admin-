@@ -30,7 +30,6 @@ export const CAMPAIGNS = [
   { value: '', label: 'All campaigns' },
   { value: 'ACA', label: 'ACA' },
   { value: 'MEDICARE', label: 'Medicare' },
-  { value: 'MED_ALERT', label: 'Med alert' },
 ] as const;
 
 export function campaignLabel(value: string): string {

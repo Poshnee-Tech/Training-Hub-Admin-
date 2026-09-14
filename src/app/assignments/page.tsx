@@ -443,10 +443,6 @@ export default function AssignmentsPage() {
                       <option value="MEDICARE">
                         Medicare
                       </option>
-
-                      <option value="MED_ALERT">
-                        Med Alert
-                      </option>
                     </select>
 
                     <select
