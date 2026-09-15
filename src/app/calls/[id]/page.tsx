@@ -225,7 +225,7 @@ export default function CallDetailPage() {
     <div className="flex">
       <AdminSidebar />
       <main
-        className="bean-scope relative ml-64 min-h-screen flex-1 bg-bean-bg p-8 font-body text-bean-ink antialiased"
+        className="bean-scope relative mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-bean-bg p-4 sm:p-6 lg:p-8 font-body text-bean-ink antialiased"
       >
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -275,7 +275,7 @@ export default function CallDetailPage() {
                       type="button"
                       onClick={() => void reEvaluate()}
                       disabled={rescoring || scoringPending}
-                      className="admin-pill border-bean-line bg-bean-card2 px-3 py-1.5 text-[12px] font-semibold text-bean-muted transition-colors hover:border-bean-brand/30 hover:bg-bean-brand/[0.07] hover:text-bean-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-bean-line disabled:hover:bg-bean-card2 disabled:hover:text-bean-muted"
+                      className="inline-flex min-h-9 items-center justify-center rounded-lg border border-bean-line bg-bean-card px-3.5 py-1.5 text-[12.5px] font-semibold normal-case tracking-normal text-bean-ink transition-colors hover:border-bean-brand/40 hover:bg-bean-brand/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {rescoring ? 'Starting…' : scoringPending ? 'Re-evaluating…' : 'Re-evaluate'}
                     </button>

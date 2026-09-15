@@ -331,7 +331,7 @@ export default function ClipsAdminPage() {
       <AdminSidebar />
 
       <main
-        className="bean-scope relative ml-64 min-h-screen flex-1 bg-bean-bg px-6 pb-36 pt-7 font-body text-bean-ink antialiased lg:px-8"
+        className="bean-scope relative mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-bean-bg px-4 sm:px-6 pb-36 pt-7 font-body text-bean-ink antialiased lg:px-8"
       >
         <div className="bean-glow pointer-events-none fixed inset-0 z-0" aria-hidden />
         <div className="bean-grid pointer-events-none fixed inset-0 z-0 opacity-50" aria-hidden />

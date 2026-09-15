@@ -116,7 +116,7 @@ export default function AdminDashboard() {
 
       <AdminSidebar />
 
-      <main className="ember-scope ml-64 min-w-0 flex-1 px-6 py-7 lg:px-8">
+      <main className="ember-scope mt-14 min-w-0 lg:mt-0 lg:ml-64 flex-1 px-4 sm:px-6 py-7 lg:px-8">
         <div className="mx-auto w-full max-w-[1500px]">
         {/* ── header ─────────────────────────────────────── */}
         <header className="mb-6 flex flex-wrap items-start justify-between gap-5 animate-air-rise">

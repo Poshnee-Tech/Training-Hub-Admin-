@@ -542,7 +542,7 @@ export default function KnowledgeAdminPage() {
           this page started with only had a dark remap, so in the bright theme
           it rendered as a white sheet with nothing of the product in it. */}
       <main
-        className="bean-scope relative ml-64 min-h-screen flex-1 bg-bean-bg px-6 py-7 font-body text-bean-ink antialiased lg:px-8"
+        className="bean-scope relative mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-bean-bg px-4 sm:px-6 py-7 font-body text-bean-ink antialiased lg:px-8"
       >
         <div className="mx-auto w-full max-w-[1500px]">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -629,7 +629,7 @@ export default function KnowledgeAdminPage() {
               onChange={(e) => setNewTopic(e.target.value)}
               placeholder="New topic name"
               aria-label="New topic name"
-              className={`${FIELD} max-w-[220px]`}
+              className={`${FIELD} min-w-0 flex-1 lg:max-w-[220px]`}
             />
             <Btn tone="solid" type="submit" disabled={addingTopic || !newTopic.trim()}>
               <PlusGlyph className="h-[15px] w-[15px]" />
@@ -1257,12 +1257,12 @@ function Waveform({ frac, onSeek }: { frac: number; onSeek?: (f: number) => void
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(frac * 100)}
-      className="mt-1.5 flex h-6 cursor-pointer items-center gap-[2px]"
+      className="mt-1.5 flex h-6 w-full min-w-0 cursor-pointer items-center gap-[2px] overflow-hidden"
     >
       {bars.map((h, i) => (
         <span
           key={i}
-          className={`w-[3px] shrink-0 rounded-[2px] ${
+          className={`min-w-px max-w-[3px] flex-1 rounded-[2px] ${
             i / (bars.length - 1) < frac ? 'bg-bean-brand' : 'bg-bean-line'
           }`}
           style={{ height: h }}

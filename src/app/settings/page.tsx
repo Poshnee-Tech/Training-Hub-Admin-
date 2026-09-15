@@ -90,7 +90,7 @@ export default function SettingsPage() {
     <div className="flex">
       <AdminSidebar />
 
-      <main className="ml-64 min-w-0 flex-1 px-6 py-7 lg:px-8">
+      <main className="mt-14 min-w-0 lg:mt-0 lg:ml-64 flex-1 px-4 sm:px-6 py-7 lg:px-8">
         {/* Contained and centred, like every other admin page: two `max-w-lg`
             cards in a full-width main left most of the screen empty and the
             page reading as unfinished. */}

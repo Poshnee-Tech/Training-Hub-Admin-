@@ -3,9 +3,9 @@
 /**
  * Admin sidebar — the switchboard patch panel.
  *
- * Same sections and same routes as before; the structure is unchanged so every
- * page that already renders `<AdminSidebar />` next to an `ml-64` main keeps
- * working untouched. Width stays 16rem for exactly that reason.
+ * Same sections and same routes as before. At `lg` (1024px) and up it is the
+ * fixed 16rem rail every page offsets with `lg:ml-64`. Below that it is a
+ * drawer behind a menu button in a slim top bar — see `mobileOpen` below.
  *
  * Where the agent portal is the "training floor", this is the board behind it:
  * each section carries its own accent, and the active row patches in with a
@@ -94,6 +94,33 @@ export default function AdminSidebar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * ── BELOW 1024px THE RAIL IS A DRAWER ─────────────────────────────────────
+   *
+   * The rail used to be on screen at every width, 256px wide, with every page
+   * pushed right by `ml-64`. On a 390px phone that left 134px for the page
+   * itself — tables, forms and the scenario editor squeezed into a strip — and
+   * there was no way to put the rail away. Below `lg` it now slides in from the
+   * left behind a menu button; at `lg` and up nothing about it has changed.
+   *
+   * Closed from the link that was tapped rather than from a pathname effect, so
+   * the page you picked is never left sitting under an open drawer.
+   */
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false); };
+    document.addEventListener('keydown', onKey);
+    // The page behind must not scroll while the drawer is over it.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [mobileOpen]);
+
   // Close the account menu when clicking anywhere outside it. Failed logins
   // and scattered mousedown events otherwise leave it hanging open behind the
   // next page. Sign out and Change password close it themselves too.
@@ -109,7 +136,40 @@ export default function AdminSidebar() {
   }, [accountOpen]);
 
   return (
-    <aside id="admin-sidebar" className="air-rail fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r">
+    <>
+    {/* Mobile top bar — the only chrome below lg. Fixed, so pages reserve its
+        56px with `mt-14 lg:mt-0` on their main element. */}
+    <header className="air-rail fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b px-3 lg:hidden">
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open navigation"
+        aria-controls="admin-sidebar"
+        aria-expanded={mobileOpen}
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-air-text transition-colors hover:bg-air-line/[0.08]"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </button>
+      <LogoTile className="h-8 w-8 shrink-0" radius={9} />
+      <span className="min-w-0 truncate font-display text-[15px] font-extrabold tracking-[-0.02em] text-air-text">
+        Poshnee
+        <span className="ml-2 font-mono-ui text-[9px] font-semibold uppercase tracking-[0.16em] text-air-faint">Admin</span>
+      </span>
+    </header>
+
+    {mobileOpen && (
+      <div className="fixed inset-0 z-40 bg-black/45 lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden />
+    )}
+
+    <aside
+      id="admin-sidebar"
+      className={cn(
+        'air-rail fixed left-0 top-0 z-50 flex h-[100dvh] w-64 max-w-[85vw] flex-col border-r transition-transform duration-200 lg:z-40 lg:h-screen lg:max-w-none lg:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+      )}
+    >
       {/* select-none: the brand is not a link or an input — clicking it must not
           raise a text caret. */}
       <div className="air-hairline flex h-[74px] shrink-0 select-none items-center gap-3 border-b px-5 cursor-default">
@@ -126,6 +186,16 @@ export default function AdminSidebar() {
             Training Hub · Admin
           </span>
         </span>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close navigation"
+          className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-lg text-air-faint transition-colors hover:bg-air-line/[0.08] hover:text-air-text lg:hidden"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       <nav className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Admin sections">
@@ -147,6 +217,7 @@ export default function AdminSidebar() {
                     key={item.href}
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
+                    onClick={() => setMobileOpen(false)}
                     className={cn(
                       'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-colors',
                       active
@@ -212,7 +283,7 @@ export default function AdminSidebar() {
               <Link
                 href="/settings"
                 role="menuitem"
-                onClick={() => setAccountOpen(false)}
+                onClick={() => { setAccountOpen(false); setMobileOpen(false); }}
                 className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-mono-ui text-[10px] font-bold uppercase tracking-[0.14em] text-air-faint transition-colors hover:bg-air-line/[0.08] hover:text-air-signal-bright"
               >
                 <CogGlyph className="h-3.5 w-3.5 stroke-current" />
@@ -231,6 +302,7 @@ export default function AdminSidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }
 

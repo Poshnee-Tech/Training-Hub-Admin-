@@ -243,7 +243,7 @@ export default function AgentDetailPage() {
     return (
       <div className="flex">
         <AdminSidebar />
-        <div className="ledger-scope ml-64 min-h-screen flex-1 bg-ledger-bg">
+        <div className="ledger-scope mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-ledger-bg">
           <main className="flex min-h-screen w-full items-center justify-center px-10 py-9">
             <div className="flex items-center gap-3 font-mono-ui text-[11px] uppercase tracking-[0.14em] text-ledger-faint">
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-ledger-brand border-t-transparent" />
@@ -258,7 +258,7 @@ export default function AgentDetailPage() {
   return (
     <div className="flex">
       <AdminSidebar />
-      <div className="ledger-scope ml-64 min-h-screen flex-1 bg-ledger-bg">
+      <div className="ledger-scope mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-ledger-bg">
         <main className="w-full px-10 py-9">
           {/* Back */}
           <Reveal>

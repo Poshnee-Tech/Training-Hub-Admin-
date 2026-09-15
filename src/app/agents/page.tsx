@@ -146,7 +146,7 @@ export default function AgentsPage() {
     <div className="flex">
       <AdminSidebar />
 
-      <main className="ledger-scope relative ml-64 min-h-screen flex-1 bg-ledger-bg px-6 py-7 text-ledger-ink antialiased lg:px-8">
+      <main className="ledger-scope relative mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-ledger-bg px-4 sm:px-6 py-7 text-ledger-ink antialiased lg:px-8">
         <div className="mx-auto w-full max-w-[1500px]">
           {/* Header */}
           <header className="mb-6 flex flex-wrap items-start justify-between gap-4">

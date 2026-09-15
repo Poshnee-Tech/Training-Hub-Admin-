@@ -294,7 +294,7 @@ export default function PronunciationSentencesPage() {
     <div className="flex">
       <AdminSidebar />
 
-      <main className="bean-scope relative ml-64 min-h-screen flex-1 bg-bean-bg px-7 py-6 font-body text-bean-ink antialiased">
+      <main className="bean-scope relative mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-bean-bg px-4 py-6 sm:px-7 font-body text-bean-ink antialiased">
         <div className="mx-auto w-full max-w-[1400px]">
 
           {/* Header */}

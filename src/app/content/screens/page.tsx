@@ -300,7 +300,7 @@ export default function KnowledgeScreensPage() {
     // resolve to nothing and the page renders as a white sheet.
     <div className="relative flex">
       <AdminSidebar />
-      <main className="bean-scope relative ml-64 min-h-screen flex-1 bg-bean-bg p-8 font-body text-bean-ink antialiased">
+      <main className="bean-scope relative mt-14 min-w-0 lg:mt-0 lg:ml-64 min-h-screen flex-1 bg-bean-bg p-4 sm:p-6 lg:p-8 font-body text-bean-ink antialiased">
         <header className="mb-6">
           <h1 className="font-display text-[26px] font-extrabold tracking-[-0.03em] text-bean-ink">Knowledge screens</h1>
           <p className="mt-1 max-w-[70ch] text-[13.5px] text-bean-mute">
