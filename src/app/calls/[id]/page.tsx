@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/layout/AdminSidebar';
@@ -88,15 +88,121 @@ export default function CallDetailPage() {
   /** Whether the trainee can currently see what is on this page. Null until read. */
   const [agentReportDetail, setAgentReportDetail] = useState<boolean | null>(null);
 
+  /**
+   * Re-scoring state. `rescoring` covers the request itself; `scoringPending`
+   * stays true while the worker has the job, which is the part that takes two
+   * or three minutes.
+   */
+  const [rescoring, setRescoring] = useState(false);
+  const [scoringPending, setScoringPending] = useState(false);
+  const [rescoreError, setRescoreError] = useState<string | null>(null);
+
   useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
+
+  const loadCall = useCallback(async () => {
+    if (!token || !params.id) return null;
+    const res = await admin.getCallDetail(token, params.id as string);
+    setCall(res.data);
+    return res.data;
+  }, [token, params.id]);
 
   useEffect(() => {
     if (!token || !params.id) return;
-    admin.getCallDetail(token, params.id as string)
-      .then((res) => setCall(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [token, params.id]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        await loadCall();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, params.id, loadCall]);
+
+  /**
+   * ── RE-EVALUATE (owner ruling 2026-09-15) ────────────────────────────────
+   *
+   * This button used to be on the trainee's own report. Re-scoring replaces
+   * the mark and keeps no copy of the old one, so the person being marked
+   * could re-roll their score until they liked it, with no trace. It is a QA
+   * action, so it belongs to whoever owns QA.
+   *
+   * The confirmation is not ceremony: the current report is destroyed by this,
+   * and the score can legitimately come back LOWER.
+   */
+  const reEvaluate = useCallback(async () => {
+    if (!token || !params.id || rescoring || scoringPending) return;
+    if (!window.confirm(
+      'Re-evaluate this call?\n\n'
+      + 'The current report is replaced by a newly generated one and the old '
+      + 'score is not kept. The new score may be higher or lower.',
+    )) return;
+
+    setRescoreError(null);
+    setRescoring(true);
+    try {
+      await admin.retryEvaluation(token, params.id as string);
+      setScoringPending(true);
+    } catch (error: any) {
+      setRescoreError(error?.message || 'Could not start re-evaluation.');
+    } finally {
+      setRescoring(false);
+    }
+  }, [token, params.id, rescoring, scoringPending]);
+
+  /**
+   * Poll while the worker holds the job, then reload the call so the new
+   * scorecard replaces the old one in place.
+   *
+   * Bounded at fifteen minutes, the same ceiling the agent report uses: a full
+   * evaluation with the voice and accent passes runs two to three minutes, and
+   * a shorter bound left the page claiming to be working when it had stopped
+   * asking.
+   */
+  useEffect(() => {
+    if (!scoringPending || !token || !params.id) return;
+    let cancelled = false;
+    let attempts = 0;
+
+    const tick = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        const res = await admin.evaluationStatus(token, params.id as string);
+        // `status` is the normalised one. `jobStatus` beside it is the raw
+        // enum (PENDING/PROCESSING) and reading that instead stops the poll
+        // on its first tick, because it never equals 'queued'.
+        const status = res.data?.status;
+        if (status !== 'queued' && status !== 'processing') {
+          if (cancelled) return;
+          setScoringPending(false);
+          if (status === 'failed') {
+            setRescoreError(
+              res.data?.lastError
+                ? `Scoring failed: ${res.data.lastError}`
+                : 'Scoring failed. The previous report is still shown.',
+            );
+          }
+          await loadCall();
+          return;
+        }
+      } catch {
+        // A single failed poll is not a failed evaluation; keep asking.
+      }
+      if (cancelled) return;
+      if (attempts >= 225) {
+        setScoringPending(false);
+        setRescoreError('Scoring is taking longer than expected. Reload to check again.');
+        return;
+      }
+      timer = setTimeout(() => void tick(), 4000);
+    };
+
+    let timer = setTimeout(() => void tick(), 4000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [scoringPending, token, params.id, loadCall]);
 
   useEffect(() => {
     if (!token) return;
@@ -159,11 +265,36 @@ export default function CallDetailPage() {
                   </div>
                 </div>
                 {call?.evaluation && (
-                  <div className={`shrink-0 text-4xl font-extrabold ${scoreColor(call.evaluation.overallScore)}`}>
-                    {call.evaluation.overallScore}%
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className={`text-4xl font-extrabold ${scoreColor(call.evaluation.overallScore)}`}>
+                      {call.evaluation.overallScore}%
+                    </div>
+                    {/* Re-scoring lives here, not on the trainee's own report.
+                        See the reEvaluate comment above for why. */}
+                    <button
+                      type="button"
+                      onClick={() => void reEvaluate()}
+                      disabled={rescoring || scoringPending}
+                      className="admin-pill border-bean-line bg-bean-card2 px-3 py-1.5 text-[12px] font-semibold text-bean-muted transition-colors hover:border-bean-brand/30 hover:bg-bean-brand/[0.07] hover:text-bean-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-bean-line disabled:hover:bg-bean-card2 disabled:hover:text-bean-muted"
+                    >
+                      {rescoring ? 'Starting…' : scoringPending ? 'Re-evaluating…' : 'Re-evaluate'}
+                    </button>
                   </div>
                 )}
               </div>
+
+              {scoringPending && (
+                <p className="mt-4 border-t border-bean-line pt-3 text-[12.5px] text-bean-muted">
+                  Scoring this call again. It takes two to three minutes; the report below
+                  is the previous one until the new score replaces it. This page updates on
+                  its own.
+                </p>
+              )}
+              {rescoreError && (
+                <p className="mt-4 border-t border-bean-line pt-3 text-[12.5px] text-bean-live">
+                  {rescoreError}
+                </p>
+              )}
             </div>
 
             {/*

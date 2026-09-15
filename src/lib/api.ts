@@ -255,6 +255,24 @@ export const admin = {
   },
   getCallDetail: (token: string, id: string) => request<any>(`/api/admin/calls/${id}`, { token }),
 
+  /**
+   * Re-run QA scoring on a call, replacing the report it already has.
+   *
+   * Moved here from the agent portal (owner ruling 2026-09-15): re-scoring
+   * replaces the trainee's mark and keeps no copy of the old one, so someone
+   * being marked could re-roll their own score. The server enforces the split
+   * as well — a non-admin calling this on an already-scored call gets a 403.
+   *
+   * Not under /api/admin: it is the same endpoint the agent portal uses for a
+   * first score, and it already admits admins for any session.
+   */
+  retryEvaluation: (token: string, sessionId: string) =>
+    request<any>(`/api/evaluations/session/${sessionId}/retry`, { method: 'POST', token }),
+
+  /** Job state for a call's scoring run, so the button can show progress. */
+  evaluationStatus: (token: string, sessionId: string) =>
+    request<any>(`/api/evaluations/session/${sessionId}/status`, { token }),
+
   // ── Call recordings ────────────────────────────────────────
   // Stereo WAV per call: trainee on the left channel, customer on the right.
   listRecordings: (token: string, params?: any) => {
