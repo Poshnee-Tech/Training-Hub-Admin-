@@ -73,9 +73,20 @@ export default function SignupRequestsPage() {
     setNotice('');
 
     try {
-      await admin.approveSignupRequest(token, row.id);
+      // ── SAY WHAT ACTUALLY HAPPENED ────────────────────────────────────
+      // This said "They have been emailed" unconditionally, and until
+      // 2026-09-15 no email was sent at ALL — approval minted the account
+      // and told nobody. The claim is now read from the response: the
+      // server reports whether the message went, and a failed send does not
+      // fail the approval, so the two facts have to be stated separately.
+      const res = await admin.approveSignupRequest(token, row.id);
+      const notified = res?.notified;
       setNotice(
-        `${row.firstName} ${row.lastName} approved. They have been emailed.`,
+        notified && notified.sent === false
+          ? `${row.firstName} ${row.lastName} approved — the account is live and they can sign in. `
+            + `The notification email did NOT go out: ${notified.reason ?? 'unknown reason'} `
+            + `Tell them directly, then check the SMTP settings.`
+          : `${row.firstName} ${row.lastName} approved. They have been emailed and can sign in now.`,
       );
       setConfirming(null);
       await load();
@@ -94,9 +105,13 @@ export default function SignupRequestsPage() {
     setNotice('');
 
     try {
-      await admin.rejectSignupRequest(token, row.id);
+      const res = await admin.rejectSignupRequest(token, row.id);
+      const notified = res?.notified;
       setNotice(
-        `${row.firstName} ${row.lastName} rejected. They have been emailed.`,
+        notified && notified.sent === false
+          ? `${row.firstName} ${row.lastName} rejected. The notification email did NOT go out: `
+            + `${notified.reason ?? 'unknown reason'}`
+          : `${row.firstName} ${row.lastName} rejected. They have been emailed.`,
       );
       setConfirming(null);
       await load();
@@ -417,10 +432,19 @@ export default function SignupRequestsPage() {
                           )}
                         </div>
                       ) : (
+                        // STATES ONLY WHAT THE ROW RECORDS.
+                        // This used to read "Account created and applicant
+                        // notified." for every approved row. Nothing stores
+                        // whether a notification was sent, and until 2026-09-15
+                        // none ever was — so for every request reviewed before
+                        // that date the sentence was simply untrue, and there is
+                        // no way to tell from here which side of the line a row
+                        // falls on. The decision is what this row knows; whether
+                        // the email went is reported at the moment of the action.
                         <div className="border-t border-bean-line bg-bean-card2/35 px-5 py-3 text-[11.5px] text-bean-faint">
                           {row.status === 'APPROVED'
-                            ? 'Account created and applicant notified.'
-                            : 'Applicant notified that the request was not approved.'}
+                            ? 'Account created — they sign in with the password they chose at signup.'
+                            : 'Request declined. No account was created.'}
                         </div>
                       )}
                     </article>

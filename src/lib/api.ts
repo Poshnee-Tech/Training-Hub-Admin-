@@ -169,6 +169,12 @@ export interface SignupRequest {
   createdAt: string;
 }
 
+/** Reported by the approve/reject endpoints alongside the decision. */
+export interface NotifyOutcome {
+  sent: boolean;
+  reason?: string;
+}
+
 export const admin = {
   /**
    * Signup requests waiting on a trainer.
@@ -185,14 +191,22 @@ export const admin = {
     );
   },
 
+  /**
+   * Whether the applicant was emailed about the decision.
+   *
+   * Separate from `success` on purpose. The decision is committed before the
+   * email is attempted, so a send failure leaves a perfectly good approval
+   * that nobody was told about — two different facts, and the screen has to
+   * be able to say both. `sent: false` never means the approval failed.
+   */
   approveSignupRequest: (token: string, id: string) =>
-    request<{ success: boolean; data: SignupRequest }>(
+    request<{ success: boolean; data: SignupRequest; notified?: NotifyOutcome }>(
       `/api/admin/signup-requests/${id}/approve`,
       { method: 'POST', token },
     ),
 
   rejectSignupRequest: (token: string, id: string) =>
-    request<{ success: boolean; data: SignupRequest }>(
+    request<{ success: boolean; data: SignupRequest; notified?: NotifyOutcome }>(
       `/api/admin/signup-requests/${id}/reject`,
       { method: 'POST', token },
     ),
