@@ -7,6 +7,7 @@ import AdminSidebar from '@/components/layout/AdminSidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { admin, assignmentsExtra } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { useQuietPoll } from '@/lib/use-quiet-poll';
 
 /**
  * Agent profile — one agent's ledger page.
@@ -191,11 +192,24 @@ export default function AgentDetailPage() {
   const [performance, setPerformance] = useState<any>(null);
   const [journey, setJourney] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [breaks, setBreaks] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
 
   useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
+
+  // Breaks refresh in the background and re-render only when a break starts,
+  // ends or changes; the page never reloads or jumps while it is being read.
+  const agentId = params.id as string | undefined;
+  const { data: breaks } = useQuietPoll<any>(
+    token && agentId ? async () => (await admin.getAgentBreaks(token, agentId)).data : null,
+    10000,
+    // Re-render when a break starts or ends, and at most once a minute for the
+    // running total — not on every poll.
+    (value) => JSON.stringify([
+      value?.breaks?.map((b: any) => [b.id, b.endedAt, b.autoEnded]) ?? [],
+      Math.floor((value?.totalSeconds ?? 0) / 60),
+    ]),
+  );
 
   const loadJourney = useCallback(async () => {
     if (!token || !params.id) return;
@@ -222,9 +236,6 @@ export default function AgentDetailPage() {
     loadJourney();
     assignmentsExtra.agentCustomers(token, params.id as string)
       .then((res) => setCustomers(res.data))
-      .catch(() => {});
-    admin.getAgentBreaks(token, params.id as string)
-      .then((res) => setBreaks(res.data))
       .catch(() => {});
   }, [token, params.id, loadJourney]);
 
@@ -358,6 +369,68 @@ export default function AgentDetailPage() {
               </section>
             </Reveal>
           </div>
+
+          {/* Dialer breaks — directly under the header, above the per-call
+            * sections, so it stays in view however long the session history grows. */}
+          <Reveal delay={220}>
+            <section className="ledger-panel mt-3.5 rounded-2xl border px-6 py-5">
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+                <h2 className="font-serif-ui text-[17px] font-semibold text-ledger-ink">Breaks</h2>
+                <span
+                  className="whitespace-nowrap font-mono-ui text-[10.5px] uppercase tracking-[0.05em] text-ledger-muted"
+                  title="Time on break inside this window. A break crossing the start of the window counts only its part inside it."
+                >
+                  Last {breaks?.days ?? 7} days · {breaks ? formatBreakTime(breaks.totalSeconds) : '—'} total
+                </span>
+              </div>
+
+              {!breaks || breaks.count === 0 ? (
+                <p className="py-6 text-center font-mono-ui text-[11px] uppercase tracking-[0.12em] text-ledger-faint">
+                  No breaks taken
+                </p>
+              ) : (
+                <>
+                  {breaks.breaks[0]?.ongoing && (
+                    <p className="mb-3 text-[13px] font-semibold text-ledger-bad">
+                      On break now: {BREAK_LABEL[breaks.breaks[0].reason] ?? breaks.breaks[0].reason}, since {new Date(breaks.breaks[0].startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (ends automatically after 1 hour)
+                    </p>
+                  )}
+                  <div className="mb-4 flex flex-wrap gap-1.5">
+                    {Object.entries(breaks.byReason as Record<string, number>)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([reason, seconds]) => (
+                        <Pill key={reason} className="border border-ledger-line bg-ledger-bg text-ledger-muted">
+                          {BREAK_LABEL[reason] ?? reason} · {formatBreakTime(seconds)}
+                        </Pill>
+                      ))}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {breaks.breaks.slice(0, 10).map((b: any) => (
+                      <div key={b.id} className="flex items-center justify-between gap-4 rounded-[10px] border border-ledger-line bg-ledger-bg px-4 py-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-ledger-ink">{BREAK_LABEL[b.reason] ?? b.reason}</p>
+                          <p className="font-mono-ui text-[10.5px] text-ledger-muted">
+                            {formatDate(b.startedAt)} · {new Date(b.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <span
+                          className={`num flex-none font-mono-ui text-[12px] ${b.ongoing || b.autoEnded ? 'text-ledger-bad' : 'text-ledger-ink'}`}
+                          title={b.autoEnded ? 'The agent did not come back; the break closed itself at the one-hour limit.' : undefined}
+                        >
+                          {b.ongoing
+                            ? 'ongoing'
+                            : b.autoEnded ? `${formatBreakTime(b.seconds)} · auto-ended` : formatBreakTime(b.seconds)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {breaks.count > 10 && (
+                    <p className="mt-2 font-mono-ui text-[10.5px] text-ledger-muted">Showing the latest 10 of {breaks.count}</p>
+                  )}
+                </>
+              )}
+            </section>
+          </Reveal>
 
           {/* Per-agent coaching: all values below come from this agent's saved
               evaluations, never the team dashboard or placeholder data. */}
@@ -591,67 +664,6 @@ export default function AgentDetailPage() {
                     </div>
                   ))}
                 </div>
-              )}
-            </section>
-          </Reveal>
-
-          {/* Dialer breaks */}
-          <Reveal delay={560}>
-            <section className="ledger-panel mt-3.5 rounded-2xl border px-6 py-5">
-              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-                <h2 className="font-serif-ui text-[17px] font-semibold text-ledger-ink">Breaks</h2>
-                <span
-                  className="whitespace-nowrap font-mono-ui text-[10.5px] uppercase tracking-[0.05em] text-ledger-muted"
-                  title="Time on break inside this window. A break crossing the start of the window counts only its part inside it."
-                >
-                  Last {breaks?.days ?? 7} days · {breaks ? formatBreakTime(breaks.totalSeconds) : '—'} total
-                </span>
-              </div>
-
-              {!breaks || breaks.count === 0 ? (
-                <p className="py-6 text-center font-mono-ui text-[11px] uppercase tracking-[0.12em] text-ledger-faint">
-                  No breaks taken
-                </p>
-              ) : (
-                <>
-                  {breaks.breaks[0]?.ongoing && (
-                    <p className="mb-3 text-[13px] font-semibold text-ledger-bad">
-                      On break now: {BREAK_LABEL[breaks.breaks[0].reason] ?? breaks.breaks[0].reason}, {formatBreakTime(breaks.breaks[0].seconds)} so far
-                    </p>
-                  )}
-                  <div className="mb-4 flex flex-wrap gap-1.5">
-                    {Object.entries(breaks.byReason as Record<string, number>)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([reason, seconds]) => (
-                        <Pill key={reason} className="border border-ledger-line bg-ledger-bg text-ledger-muted">
-                          {BREAK_LABEL[reason] ?? reason} · {formatBreakTime(seconds)}
-                        </Pill>
-                      ))}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {breaks.breaks.slice(0, 10).map((b: any) => (
-                      <div key={b.id} className="flex items-center justify-between gap-4 rounded-[10px] border border-ledger-line bg-ledger-bg px-4 py-2.5">
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-ledger-ink">{BREAK_LABEL[b.reason] ?? b.reason}</p>
-                          <p className="font-mono-ui text-[10.5px] text-ledger-muted">
-                            {formatDate(b.startedAt)} · {new Date(b.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        <span
-                          className={`num flex-none font-mono-ui text-[12px] ${b.ongoing || b.stale ? 'text-ledger-bad' : 'text-ledger-ink'}`}
-                          title={b.stale ? 'Never closed (the dialer was left without pressing READY). Counted as one 8-hour shift at most.' : undefined}
-                        >
-                          {b.stale
-                            ? `${formatBreakTime(b.seconds)} · not closed`
-                            : b.ongoing ? `${formatBreakTime(b.seconds)} · ongoing` : formatBreakTime(b.seconds)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {breaks.count > 10 && (
-                    <p className="mt-2 font-mono-ui text-[10.5px] text-ledger-muted">Showing the latest 10 of {breaks.count}</p>
-                  )}
-                </>
               )}
             </section>
           </Reveal>

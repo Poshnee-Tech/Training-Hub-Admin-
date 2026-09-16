@@ -250,6 +250,9 @@ export const admin = {
     request<any>(`/api/admin/agents/${agentId}/journey/${stageId}/reset`, { method: 'POST', token }),
   getAgentPerformance: (token: string, id: string) =>
     request<any>(`/api/admin/agents/${id}/performance`, { token }),
+  /** Live floor: every active agent on a call, on a break, or neither. */
+  floor: (token: string) =>
+    request<{ success: boolean; data: FloorView }>('/api/admin/floor', { token }),
   /** Dialer breaks started in the last `days` days, with totals per reason. */
   getAgentBreaks: (token: string, id: string, days = 7) =>
     request<any>(`/api/admin/agents/${id}/breaks?days=${days}`, { token }),
@@ -815,3 +818,25 @@ export const settingsApi = {
       method: 'PUT', body, token,
     }),
 };
+
+// ── Live floor (dashboard) ───────────────────────────────────
+export type FloorStatus = 'ON_CALL' | 'ON_BREAK' | 'NOT_ON_CALL';
+
+export interface FloorAgent {
+  id: string;
+  name: string;
+  email: string;
+  status: FloorStatus;
+  since: string | null;
+  breakReason: string | null;
+  customerName: string | null;
+  campaign: string | null;
+  callsInQueue: number;
+}
+
+export interface FloorView {
+  generatedAt: string;
+  breakMaxSeconds: number;
+  counts: { onCall: number; onBreak: number; notOnCall: number; total: number };
+  agents: FloorAgent[];
+}
