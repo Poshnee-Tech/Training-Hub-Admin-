@@ -28,6 +28,7 @@ import { ComponentProps, useCallback, useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 import RadialGauge, { toneForScore, type GaugeTone } from '@/components/admin/RadialGauge';
+import LiveFloor from '@/components/admin/LiveFloor';
 import { useAuthStore } from '@/store/auth.store';
 import { admin } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -182,6 +183,9 @@ export default function AdminDashboard() {
             )}
           </div>
         </header>
+
+        {/* ── live floor: on a call / on break / neither, refreshed quietly ── */}
+        <LiveFloor token={token} />
 
         {loading ? (
           <DashboardSkeleton />
