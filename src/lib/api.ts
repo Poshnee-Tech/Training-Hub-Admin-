@@ -250,6 +250,9 @@ export const admin = {
     request<any>(`/api/admin/agents/${agentId}/journey/${stageId}/reset`, { method: 'POST', token }),
   getAgentPerformance: (token: string, id: string) =>
     request<any>(`/api/admin/agents/${id}/performance`, { token }),
+  /** Dialer breaks started in the last `days` days, with totals per reason. */
+  getAgentBreaks: (token: string, id: string, days = 7) =>
+    request<any>(`/api/admin/agents/${id}/breaks?days=${days}`, { token }),
   /**
    * Switch an agent's sign-in on or off.
    *
