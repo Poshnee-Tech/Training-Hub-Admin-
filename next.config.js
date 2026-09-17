@@ -39,7 +39,11 @@ const distDir = process.env.NEXT_DIST_DIR || '.next';
  * The trainee app already carried these; this one was simply missed.
  *
  * `connect-src` is the load-bearing directive: the panel talks to the backend
- * API and nothing else. It opens no WebSocket, so `ws:` is deliberately absent.
+ * API and, since live call listening (2026-09-17), opens ONE WebSocket to it.
+ * The socket origin is DERIVED from the API URL (ws/wss of the same host) —
+ * the trainee app learned on 2026-09-15 that trusting a separately typed WS
+ * variable whitelists the wrong scheme and the browser blocks the socket. An
+ * explicit NEXT_PUBLIC_WS_URL, when set, is listed as well, normalised to ws/wss.
  *
  * 'unsafe-eval' is DEVELOPMENT ONLY, on the same measurement made for the
  * trainee app: a clean production build of that app contained zero eval or
@@ -51,11 +55,21 @@ const distDir = process.env.NEXT_DIST_DIR || '.next';
  * removing it needs per-request nonces. A known remaining gap, not a fix.
  */
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const wsOrigin = (url) => {
+  try {
+    const u = new URL(url);
+    const secure = u.protocol === 'https:' || u.protocol === 'wss:';
+    return `${secure ? 'wss:' : 'ws:'}//${u.host}`;
+  } catch {
+    return '';
+  }
+};
+const socketOrigins = [...new Set([wsOrigin(apiUrl), wsOrigin(process.env.NEXT_PUBLIC_WS_URL || '')].filter(Boolean))].join(' ');
 const isProd = process.env.NODE_ENV === 'production';
 
 const csp = [
   "default-src 'self'",
-  `connect-src 'self' ${apiUrl}`,
+  `connect-src 'self' ${apiUrl} ${socketOrigins}`,
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",

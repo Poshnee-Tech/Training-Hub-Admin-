@@ -1,6 +1,12 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 /**
+ * The backend's WebSocket endpoint, for live call listening. Defaults to the
+ * API origin with ws(s):// and /ws, which is where the backend serves it.
+ */
+export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `${API_URL.replace(/^http/, 'ws').replace(/\/$/, '')}/ws`;
+
+/**
  * This portal's name, sent on EVERY request as `X-Portal`.
  *
  * The backend names the session cookie after it (`callsim_auth_admin`) so the
@@ -253,6 +259,12 @@ export const admin = {
   /** Live floor: every active agent on a call, on a break, or neither. */
   floor: (token: string) =>
     request<{ success: boolean; data: FloorView }>('/api/admin/floor', { token }),
+  /** One-minute, single-use ticket to listen to an open call live (listen only). */
+  listenTicket: (token: string, sessionId: string) =>
+    request<{ success: boolean; data: { ticket: string; expiresIn: number } }>(
+      `/api/admin/floor/${encodeURIComponent(sessionId)}/listen-ticket`,
+      { method: 'POST', token },
+    ),
   /** Dialer breaks started in the last `days` days, with totals per reason. */
   getAgentBreaks: (token: string, id: string, days = 7) =>
     request<any>(`/api/admin/agents/${id}/breaks?days=${days}`, { token }),
@@ -832,6 +844,10 @@ export interface FloorAgent {
   customerName: string | null;
   campaign: string | null;
   callsInQueue: number;
+  /** The open call's session when on a call. */
+  sessionId: string | null;
+  /** True when the call can be listened to live right now. */
+  listenable: boolean;
 }
 
 export interface FloorView {

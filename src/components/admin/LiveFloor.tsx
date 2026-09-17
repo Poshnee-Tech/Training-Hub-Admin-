@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { admin, type FloorAgent, type FloorView } from '@/lib/api';
 import { useQuietPoll } from '@/lib/use-quiet-poll';
+import LiveListener, { audioContextFromClick } from './LiveListener';
 
 /**
  * LIVE FLOOR — who is on a call, who is on a break, who is neither, right now.
@@ -64,20 +65,20 @@ function CountTile({ label, value, tone, pulse }: { label: string; value: number
   );
 }
 
-function AgentRow({ agent, breakLimit, children }: { agent: FloorAgent; breakLimit: number; children: React.ReactNode }) {
+function AgentRow({ agent, breakLimit, children, action }: { agent: FloorAgent; breakLimit: number; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <Link
-      href={`/agents/${agent.id}`}
-      className="flex items-center justify-between gap-3 rounded-[12px] border border-air-line/15 px-3.5 py-2.5 transition hover:border-air-line/40 hover:bg-air-line/[0.04]"
-    >
-      <div className="min-w-0">
-        <p className="truncate text-[13.5px] font-semibold text-air-text">{agent.name}</p>
-        {children}
-      </div>
-      {agent.since && (
-        <Elapsed since={agent.since} limitSeconds={agent.status === 'ON_BREAK' ? breakLimit : undefined} />
-      )}
-    </Link>
+    <div className="flex items-center gap-2 rounded-[12px] border border-air-line/15 transition hover:border-air-line/40 hover:bg-air-line/[0.04]">
+      <Link href={`/agents/${agent.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3.5 py-2.5">
+        <div className="min-w-0">
+          <p className="truncate text-[13.5px] font-semibold text-air-text">{agent.name}</p>
+          {children}
+        </div>
+        {agent.since && (
+          <Elapsed since={agent.since} limitSeconds={agent.status === 'ON_BREAK' ? breakLimit : undefined} />
+        )}
+      </Link>
+      {action && <div className="shrink-0 pr-2.5">{action}</div>}
+    </div>
   );
 }
 
@@ -90,6 +91,10 @@ export default function LiveFloor({ token }: { token: string | null }) {
   );
   // From the server, so the view and the rule always agree.
   const breakLimit = data?.breakMaxSeconds ?? 60 * 60;
+  // Live listening: a snapshot of the agent, so the panel stays put while the
+  // floor refreshes (and after the call ends).
+  const [listening, setListening] = useState<{ agent: FloorAgent; audio: AudioContext } | null>(null);
+  const listeningTo = listening?.agent ?? null;
 
   const onCall = data?.agents.filter((a) => a.status === 'ON_CALL') ?? [];
   const onBreak = data?.agents.filter((a) => a.status === 'ON_BREAK') ?? [];
@@ -127,7 +132,24 @@ export default function LiveFloor({ token }: { token: string | null }) {
             ) : (
               <div className="flex flex-col gap-2">
                 {onCall.map((a) => (
-                  <AgentRow key={a.id} agent={a} breakLimit={breakLimit}>
+                  <AgentRow
+                    key={a.id}
+                    agent={a}
+                    breakLimit={breakLimit}
+                    action={a.listenable && a.sessionId ? (
+                      <button
+                        type="button"
+                        // The audio context is made here, inside the click, or browsers may keep it silent.
+                        onClick={() => setListening({ agent: a, audio: audioContextFromClick() })}
+                        disabled={listeningTo?.sessionId === a.sessionId}
+                        aria-label={`Listen to ${a.name}'s call`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-air-live/40 bg-air-live/[0.08] px-2.5 py-1 font-mono-ui text-[10px] font-bold uppercase tracking-[0.1em] text-air-live transition hover:bg-air-live/[0.16] disabled:opacity-50"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-air-live" aria-hidden />
+                        {listeningTo?.sessionId === a.sessionId ? 'Listening' : 'Listen'}
+                      </button>
+                    ) : undefined}
+                  >
                     <p className="truncate text-[12px] text-air-muted">
                       {a.customerName ?? 'Customer'}
                       {a.campaign ? ` · ${a.campaign.replace('_', ' ')}` : ''}
@@ -170,6 +192,17 @@ export default function LiveFloor({ token }: { token: string | null }) {
             )}
           </div>
         </div>
+      )}
+
+      {listening && token && (
+        // Keyed by call: switching calls tears the old connection down first.
+        <LiveListener
+          key={listening.agent.sessionId}
+          agent={listening.agent}
+          audio={listening.audio}
+          token={token}
+          onClose={() => setListening(null)}
+        />
       )}
     </section>
   );
