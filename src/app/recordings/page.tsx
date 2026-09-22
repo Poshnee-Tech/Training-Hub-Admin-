@@ -13,6 +13,7 @@ import AdminSidebar from '@/components/layout/AdminSidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { admin } from '@/lib/api';
 import { formatDate, formatDuration } from '@/lib/utils';
+import AgentSearch, { type AgentOption } from '@/components/ui/AgentSearch';
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return '—';
@@ -70,6 +71,12 @@ export default function RecordingsPage() {
    */
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
+  /**
+   * The agent picked from the suggestions, if one was. Filtering by id is exact
+   * where the text search is a guess: two people called Ali are one LIKE and
+   * two different ids.
+   */
+  const [agent, setAgent] = useState<AgentOption | null>(null);
 
   const objectUrlRef = useRef<string | null>(null);
 
@@ -99,7 +106,9 @@ export default function RecordingsPage() {
       const res = await admin.listRecordings(token, {
         page: String(page),
         limit: '15',
-        ...(search ? { search } : {}),
+        // An id beats the text it came from: once an agent is chosen, the list
+        // is theirs exactly, with no second person's rows caught by a LIKE.
+        ...(agent ? { agentId: agent.id } : search ? { search } : {}),
       });
 
       setRows(res.data || []);
@@ -109,7 +118,7 @@ export default function RecordingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, search]);
+  }, [token, page, search, agent]);
 
   useEffect(() => {
     void load();
@@ -126,7 +135,7 @@ export default function RecordingsPage() {
   // list lands on an empty page and reads as "no recordings for this person".
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, agent]);
 
   async function play(sessionId: string) {
     if (!token) return;
@@ -225,26 +234,13 @@ export default function RecordingsPage() {
             <div className="flex items-center gap-2">
               {/* Searched server-side, so it finds a name anywhere in the 199,
                   not only on the page currently loaded. */}
-              <div className="relative">
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search agent or customer…"
-                  aria-label="Search recordings by agent or customer"
-                  className="bean-card min-h-10 w-[260px] rounded-xl border px-3.5 py-2.5 pr-8 text-[13px] text-bean-ink outline-none transition placeholder:text-bean-faint focus:border-bean-brand"
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => setQuery('')}
-                    aria-label="Clear search"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 text-[15px] leading-none text-bean-faint transition hover:text-bean-ink"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
+              <AgentSearch
+                query={query}
+                onQueryChange={setQuery}
+                selected={agent}
+                onSelect={setAgent}
+                className="w-[260px]"
+              />
 
               <button
                 type="button"
@@ -268,7 +264,7 @@ export default function RecordingsPage() {
                 value={totalRecordings}
                 /* The count comes from the server under the same filter, so
                    while searching this is the number of matches, not the table. */
-                helper={search ? `Matching “${search}”` : 'Across all pages'}
+                helper={agent ? `${agent.firstName ?? ''} ${agent.lastName ?? ''}`.trim() || 'This agent' : search ? `Matching “${search}”` : 'Across all pages'}
               />
               <MetricCard
                 label="Files available"
@@ -412,7 +408,7 @@ export default function RecordingsPage() {
               {/* An empty search and an empty table are different facts, and
                   "No recordings yet" told an admin the wrong one. */}
               <h3 className="mt-4 text-[15px] font-bold text-bean-ink">
-                {search ? `Nothing found for “${search}”` : 'No recordings yet'}
+                {agent ? `No recordings for ${agent.firstName ?? 'this agent'}` : search ? `Nothing found for “${search}”` : 'No recordings yet'}
               </h3>
 
               <p className="mt-1.5 max-w-md text-[12.5px] leading-relaxed text-bean-muted">

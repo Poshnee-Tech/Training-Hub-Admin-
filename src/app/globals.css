@@ -909,3 +909,16 @@
   width: 0;
   height: 0;
 }
+
+/* ── One clear button per search box ──────────────────────────────────────
+   WebKit and Blink draw their own × inside input[type="search"], so a box
+   with a themed clear button showed TWO of them side by side (reported on
+   Call Recordings, 2026-09-23). The native one is unstyleable, disappears
+   under our own focus ring, and does not exist in Firefox at all, so it is
+   the one that goes: whichever clear button a page draws is then the only
+   one, and it looks the same in every browser. */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
