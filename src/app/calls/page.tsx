@@ -404,8 +404,32 @@ export default function CallsPage() {
                                 {call.evaluation.overallScore}%
                               </Chip>
                             ) : (
-                              <span className="font-mono-ui text-[12px] text-bean-faint">
-                                —
+                              /* A dash used to cover four different situations:
+                                 queued, being scored, failed, and never sent.
+                                 `scoringState` comes from the list endpoint, so
+                                 the ledger can say which. A call from before
+                                 that field existed still reads as a dash. */
+                              <span
+                                className={`font-mono-ui text-[12px] ${
+                                  call.scoringState === 'failed'
+                                    ? 'text-bean-live'
+                                    : 'text-bean-faint'
+                                }`}
+                                title={
+                                  call.scoringState === 'queued'
+                                    ? 'Waiting to be scored. Calls are scored one at a time.'
+                                    : call.scoringState === 'failed'
+                                      ? 'Scoring failed. Open the call for the reason.'
+                                      : undefined
+                                }
+                              >
+                                {call.scoringState === 'queued'
+                                  ? 'Queued'
+                                  : call.scoringState === 'scoring'
+                                    ? 'Scoring…'
+                                    : call.scoringState === 'failed'
+                                      ? 'Failed'
+                                      : '—'}
                               </span>
                             )}
                           </td>
