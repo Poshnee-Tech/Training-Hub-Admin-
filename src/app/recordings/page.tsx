@@ -60,6 +60,16 @@ export default function RecordingsPage() {
   const [loadingAudio, setLoadingAudio] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  /**
+   * What is typed, and what has actually been searched for.
+   *
+   * They are separate because a request per keystroke would be 199 recordings
+   * re-counted eight times while someone types "dawood". `query` drives the
+   * input; `search` is what the server was asked, settled 350ms after typing
+   * stops, and it is `search` the fetch depends on.
+   */
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
 
   const objectUrlRef = useRef<string | null>(null);
 
@@ -89,6 +99,7 @@ export default function RecordingsPage() {
       const res = await admin.listRecordings(token, {
         page: String(page),
         limit: '15',
+        ...(search ? { search } : {}),
       });
 
       setRows(res.data || []);
@@ -98,11 +109,24 @@ export default function RecordingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page]);
+  }, [token, page, search]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Settle the typing before asking the server. 350ms is long enough that a
+  // name is typed in one request and short enough not to feel held back.
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(query.trim()), 350);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  // A new search starts at the beginning. Staying on page 6 of the unfiltered
+  // list lands on an empty page and reads as "no recordings for this person".
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   async function play(sessionId: string) {
     if (!token) return;
@@ -198,17 +222,42 @@ export default function RecordingsPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => void load()}
-              disabled={loading}
-              className="bean-card inline-flex min-h-10 items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold text-bean-muted transition hover:border-bean-line2 hover:text-bean-ink disabled:opacity-50"
-            >
-              <RefreshGlyph
-                className={`h-4 w-4 stroke-current ${loading ? 'animate-spin' : ''}`}
-              />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Searched server-side, so it finds a name anywhere in the 199,
+                  not only on the page currently loaded. */}
+              <div className="relative">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search agent or customer…"
+                  aria-label="Search recordings by agent or customer"
+                  className="bean-card min-h-10 w-[260px] rounded-xl border px-3.5 py-2.5 pr-8 text-[13px] text-bean-ink outline-none transition placeholder:text-bean-faint focus:border-bean-brand"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 text-[15px] leading-none text-bean-faint transition hover:text-bean-ink"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void load()}
+                disabled={loading}
+                className="bean-card inline-flex min-h-10 items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold text-bean-muted transition hover:border-bean-line2 hover:text-bean-ink disabled:opacity-50"
+              >
+                <RefreshGlyph
+                  className={`h-4 w-4 stroke-current ${loading ? 'animate-spin' : ''}`}
+                />
+                Refresh
+              </button>
+            </div>
           </header>
 
           {/* Page snapshot */}
@@ -217,7 +266,9 @@ export default function RecordingsPage() {
               <MetricCard
                 label="Total recordings"
                 value={totalRecordings}
-                helper="Across all pages"
+                /* The count comes from the server under the same filter, so
+                   while searching this is the number of matches, not the table. */
+                helper={search ? `Matching “${search}”` : 'Across all pages'}
               />
               <MetricCard
                 label="Files available"
@@ -358,14 +409,27 @@ export default function RecordingsPage() {
                 <WaveGlyph className="h-5 w-5 stroke-current" />
               </div>
 
+              {/* An empty search and an empty table are different facts, and
+                  "No recordings yet" told an admin the wrong one. */}
               <h3 className="mt-4 text-[15px] font-bold text-bean-ink">
-                No recordings yet
+                {search ? `Nothing found for “${search}”` : 'No recordings yet'}
               </h3>
 
               <p className="mt-1.5 max-w-md text-[12.5px] leading-relaxed text-bean-muted">
-                Recordings appear here automatically after a call finishes and its
-                audio file is saved.
+                {search
+                  ? 'Searches match the agent’s name or email and the customer they spoke to. Try a shorter piece of the name.'
+                  : 'Recordings appear here automatically after a call finishes and its audio file is saved.'}
               </p>
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="mt-4 rounded-lg border border-bean-line px-3 py-1.5 text-[12.5px] font-semibold text-bean-muted transition hover:text-bean-ink"
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           ) : (
             <section className="bean-card overflow-hidden rounded-[20px] border">
