@@ -408,7 +408,7 @@ export default function LiveListener({
         ) : (
           <div className="flex flex-col gap-2">
             {lines.map((line) => (
-              <div key={line.id} className={line.role === 'agent' ? 'text-left' : 'text-right'}>
+              <div key={line.id} className={line.role === 'agent' ? 'text-right' : 'text-left'}>
                 <span className="block font-mono-ui text-[9.5px] uppercase tracking-[0.12em] text-air-faint">
                   {line.role === 'agent' ? 'Agent' : 'Customer'}
                 </span>

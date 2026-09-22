@@ -96,6 +96,12 @@ export default function CallDetailPage() {
   const [rescoring, setRescoring] = useState(false);
   const [scoringPending, setScoringPending] = useState(false);
   const [rescoreError, setRescoreError] = useState<string | null>(null);
+  /**
+   * When the queue took the job, for a call that is still waiting. Scoring is
+   * one job at a time and averages several minutes, so "queued" on its own
+   * reads as "stuck" — the wait is the part an admin actually wants to see.
+   */
+  const [queuedSince, setQueuedSince] = useState<string | null>(null);
 
   useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
 
@@ -122,6 +128,43 @@ export default function CallDetailPage() {
   }, [token, params.id, loadCall]);
 
   /**
+   * ── ASK WHAT HAPPENED TO THE SCORE, NOT ONLY AFTER PRESSING THE BUTTON ───
+   *
+   * The status endpoint was consulted only once re-scoring had been STARTED
+   * from this page, so a call that arrived already queued, already failed, or
+   * never queued at all looked identical: a blank space where the score goes.
+   *
+   * MEASURED (2026-09-22, production): 21 evaluation jobs PENDING with the
+   * oldest waiting 35 minutes, and 22 DEAD carrying the reason they died. All
+   * of it was already being returned by this endpoint and thrown away here.
+   *
+   * So the page asks on load. A job still working hands over to the existing
+   * poll — that machinery was always correct, it was simply never started
+   * unless the admin had pressed the button themselves.
+   */
+  useEffect(() => {
+    if (!token || !params.id || loading) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await admin.evaluationStatus(token, params.id as string);
+        if (cancelled) return;
+        const status = res.data?.status;
+        if (status === 'queued' || status === 'processing') {
+          setQueuedSince(res.data?.queuedAt ?? null);
+          setScoringPending(true);
+        } else if (status === 'failed' && res.data?.lastError) {
+          setRescoreError(`Scoring failed: ${res.data.lastError}`);
+        }
+      } catch {
+        // A status this page could not read is not a scoring failure. The call
+        // and its report, if any, are already on screen.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, params.id, loading]);
+
+  /**
    * ── RE-EVALUATE (owner ruling 2026-09-15) ────────────────────────────────
    *
    * This button used to be on the trainee's own report. Re-scoring replaces
@@ -134,11 +177,16 @@ export default function CallDetailPage() {
    */
   const reEvaluate = useCallback(async () => {
     if (!token || !params.id || rescoring || scoringPending) return;
-    if (!window.confirm(
-      'Re-evaluate this call?\n\n'
-      + 'The current report is replaced by a newly generated one and the old '
-      + 'score is not kept. The new score may be higher or lower.',
-    )) return;
+    // A call with no report has nothing to lose, so it is not warned about
+    // losing one. The destructive warning belongs only to the destructive case.
+    const confirmText = call?.evaluation
+      ? 'Re-evaluate this call?\n\n'
+        + 'The current report is replaced by a newly generated one and the old '
+        + 'score is not kept. The new score may be higher or lower.'
+      : 'Evaluate this call?\n\n'
+        + 'This call has no report yet. Scoring takes a few minutes, and longer '
+        + 'if other calls are queued ahead of it.';
+    if (!window.confirm(confirmText)) return;
 
     setRescoreError(null);
     setRescoring(true);
@@ -150,7 +198,7 @@ export default function CallDetailPage() {
     } finally {
       setRescoring(false);
     }
-  }, [token, params.id, rescoring, scoringPending]);
+  }, [token, params.id, rescoring, scoringPending, call?.evaluation]);
 
   /**
    * Poll while the worker holds the job, then reload the call so the new
@@ -178,6 +226,7 @@ export default function CallDetailPage() {
         if (status !== 'queued' && status !== 'processing') {
           if (cancelled) return;
           setScoringPending(false);
+          setQueuedSince(null);
           if (status === 'failed') {
             setRescoreError(
               res.data?.lastError
@@ -264,11 +313,23 @@ export default function CallDetailPage() {
                     )}
                   </div>
                 </div>
-                {call?.evaluation && (
+                {/* ── SCORING THE UNSCORED, NOT ONLY THE RESCORED ────────────
+                    This block used to render only when `call.evaluation`
+                    existed, so a call that was never scored had no button at
+                    all. MEASURED (2026-09-22, production): 22 evaluation jobs
+                    DEAD and 21 PENDING — every one of those calls shows no
+                    score and, until now, offered no way to ask for one. The
+                    queue refuses a duplicate while a job is PENDING or
+                    PROCESSING, so the button is safe to press at any time. */}
+                {call && (
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    <div className={`text-4xl font-extrabold ${scoreColor(call.evaluation.overallScore)}`}>
-                      {call.evaluation.overallScore}%
-                    </div>
+                    {call.evaluation ? (
+                      <div className={`text-4xl font-extrabold ${scoreColor(call.evaluation.overallScore)}`}>
+                        {call.evaluation.overallScore}%
+                      </div>
+                    ) : (
+                      <div className="text-[13.5px] font-semibold text-bean-muted">Not scored</div>
+                    )}
                     {/* Re-scoring lives here, not on the trainee's own report.
                         See the reEvaluate comment above for why. */}
                     <button
@@ -277,7 +338,11 @@ export default function CallDetailPage() {
                       disabled={rescoring || scoringPending}
                       className="inline-flex min-h-9 items-center justify-center rounded-lg border border-bean-line bg-bean-card px-3.5 py-1.5 text-[12.5px] font-semibold normal-case tracking-normal text-bean-ink transition-colors hover:border-bean-brand/40 hover:bg-bean-brand/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {rescoring ? 'Starting…' : scoringPending ? 'Re-evaluating…' : 'Re-evaluate'}
+                      {rescoring
+                        ? 'Starting…'
+                        : scoringPending
+                          ? (call.evaluation ? 'Re-evaluating…' : 'Evaluating…')
+                          : (call.evaluation ? 'Re-evaluate' : 'Evaluate')}
                     </button>
                   </div>
                 )}
@@ -285,9 +350,16 @@ export default function CallDetailPage() {
 
               {scoringPending && (
                 <p className="mt-4 border-t border-bean-line pt-3 text-[12.5px] text-bean-muted">
-                  Scoring this call again. It takes two to three minutes; the report below
-                  is the previous one until the new score replaces it. This page updates on
-                  its own.
+                  {queuedSince
+                    /* Already waiting when the page opened. Saying "two to three
+                       minutes" here would be a guess contradicted by the queue:
+                       jobs run one at a time and can wait far longer. */
+                    ? `Queued for scoring since ${new Date(queuedSince).toLocaleTimeString()}. `
+                      + 'Calls are scored one at a time, so this can wait behind others. '
+                      + 'This page updates on its own.'
+                    : 'Scoring this call. It takes two to three minutes; the report below '
+                      + 'is the previous one until the new score replaces it. This page '
+                      + 'updates on its own.'}
                 </p>
               )}
               {rescoreError && (
