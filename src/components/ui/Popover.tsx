@@ -18,8 +18,24 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
+/**
+ * `bean-scope` FIRST, and it is not decoration.
+ *
+ * Every colour below is a `bean-*` token, and those tokens are CSS variables
+ * declared on `.bean-scope` — nowhere else. This panel is shared UI: the calls
+ * ledger renders it inside `.bean-scope`, but the assignments page renders in
+ * `.ledger-scope`, where every one of these variables is undefined. MEASURED
+ * (2026-09-23, admin assignments): `bg-bean-card` resolved to nothing, so the
+ * rows behind showed straight through the panel, and the destructive button —
+ * white text on an unresolved `bg-bean-live` — was invisible, leaving a confirm
+ * dialog whose only visible control was Cancel.
+ *
+ * Carrying the scope on the panel itself makes it independent of whichever
+ * palette the page around it happens to use. The class declares variables only;
+ * it sets no background or colour of its own, so it cannot repaint anything.
+ */
 const PANEL =
-  'absolute right-0 top-[calc(100%+8px)] z-50 w-[290px] rounded-xl border border-bean-line bg-bean-card p-3.5 text-left shadow-[0_24px_50px_-24px_rgba(0,0,0,0.55)]';
+  'bean-scope absolute right-0 top-[calc(100%+8px)] z-50 w-[290px] rounded-xl border border-bean-line bg-bean-card p-3.5 text-left shadow-[0_24px_50px_-24px_rgba(0,0,0,0.55)]';
 
 /** Shared open/close behaviour: Escape, outside click, and focus return. */
 function useDismiss(open: boolean, close: () => void) {
