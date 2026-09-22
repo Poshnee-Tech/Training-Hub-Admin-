@@ -65,6 +65,13 @@ export default function CallsPage() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
   const [error, setError] = useState('');
+  /**
+   * What is typed, and what has been searched for. Separate so a fourteen-page
+   * ledger is not re-counted on every keystroke: `query` drives the input, and
+   * `search` — settled 350ms after typing stops — is what the server is asked.
+   */
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     loadFromStorage();
@@ -74,7 +81,19 @@ export default function CallsPage() {
     if (!token) return;
     void loadCalls();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, page, filters.campaign, filters.status]);
+  }, [token, page, filters.campaign, filters.status, search]);
+
+  // Settle the typing before asking the server.
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(query.trim()), 350);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  // A new search starts at page one: staying on page six lands on an empty page
+  // and reads as "this person has no calls".
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   async function loadCalls() {
     if (!token) return;
@@ -90,6 +109,7 @@ export default function CallsPage() {
 
       if (filters.campaign) params.campaign = filters.campaign;
       if (filters.status) params.status = filters.status;
+      if (search) params.search = search;
 
       const res = await admin.listCalls(token, params);
       setCalls(res.data);
@@ -101,7 +121,7 @@ export default function CallsPage() {
     }
   }
 
-  const hasFilters = !!filters.campaign || !!filters.status;
+  const hasFilters = !!filters.campaign || !!filters.status || !!search;
 
   const pageStats = useMemo(() => {
     const completed = calls.filter((call) => call.status === 'COMPLETED').length;
@@ -240,6 +260,20 @@ export default function CallsPage() {
           {/* Filters */}
           <section className="bean-card mb-5 rounded-[18px] border p-3.5">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+              {/* Searched server-side, so a name is found anywhere in the
+                  ledger rather than only on the page already loaded. */}
+              <div className="min-w-0 flex-1">
+                <Label>Search</Label>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Agent name, email, or customer…"
+                  aria-label="Search calls by agent or customer"
+                  className={`${FIELD} w-full xl:max-w-[280px]`}
+                />
+              </div>
+
               <div className="min-w-0 flex-1">
                 <Label>Campaign</Label>
                 <select
@@ -285,6 +319,10 @@ export default function CallsPage() {
                   type="button"
                   onClick={() => {
                     setFilters({ campaign: '', status: '' });
+                    // The search is a filter too: leaving it behind makes the
+                    // button look broken, since the list stays filtered.
+                    setQuery('');
+                    setSearch('');
                     setPage(1);
                   }}
                   className="rounded-xl px-3 py-2.5 text-[12.5px] font-semibold text-bean-muted transition hover:bg-bean-card2 hover:text-bean-brand"
@@ -476,7 +514,9 @@ export default function CallsPage() {
 
                   <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-relaxed text-bean-muted">
                     {hasFilters
-                      ? 'Try widening the campaign or status filters.'
+                      ? (search
+                          ? `Nothing matched “${search}”. Searches cover the agent’s name or email and the customer they spoke to.`
+                          : 'Try widening the campaign or status filters.')
                       : 'Training sessions will appear here once agents start making calls.'}
                   </p>
 
@@ -485,6 +525,8 @@ export default function CallsPage() {
                       type="button"
                       onClick={() => {
                         setFilters({ campaign: '', status: '' });
+                        setQuery('');
+                        setSearch('');
                         setPage(1);
                       }}
                       className="mt-5 rounded-xl border border-bean-line bg-bean-card px-4 py-2.5 text-[13px] font-semibold text-bean-muted transition hover:border-bean-line2 hover:text-bean-ink"
