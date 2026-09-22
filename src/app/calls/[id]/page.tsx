@@ -96,6 +96,12 @@ export default function CallDetailPage() {
   const [rescoring, setRescoring] = useState(false);
   const [scoringPending, setScoringPending] = useState(false);
   const [rescoreError, setRescoreError] = useState<string | null>(null);
+  /**
+   * When the queue took the job, for a call that is still waiting. Scoring is
+   * one job at a time and averages several minutes, so "queued" on its own
+   * reads as "stuck" — the wait is the part an admin actually wants to see.
+   */
+  const [queuedSince, setQueuedSince] = useState<string | null>(null);
 
   useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
 
@@ -120,6 +126,43 @@ export default function CallDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [token, params.id, loadCall]);
+
+  /**
+   * ── ASK WHAT HAPPENED TO THE SCORE, NOT ONLY AFTER PRESSING THE BUTTON ───
+   *
+   * The status endpoint was consulted only once re-scoring had been STARTED
+   * from this page, so a call that arrived already queued, already failed, or
+   * never queued at all looked identical: a blank space where the score goes.
+   *
+   * MEASURED (2026-09-22, production): 21 evaluation jobs PENDING with the
+   * oldest waiting 35 minutes, and 22 DEAD carrying the reason they died. All
+   * of it was already being returned by this endpoint and thrown away here.
+   *
+   * So the page asks on load. A job still working hands over to the existing
+   * poll — that machinery was always correct, it was simply never started
+   * unless the admin had pressed the button themselves.
+   */
+  useEffect(() => {
+    if (!token || !params.id || loading) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await admin.evaluationStatus(token, params.id as string);
+        if (cancelled) return;
+        const status = res.data?.status;
+        if (status === 'queued' || status === 'processing') {
+          setQueuedSince(res.data?.queuedAt ?? null);
+          setScoringPending(true);
+        } else if (status === 'failed' && res.data?.lastError) {
+          setRescoreError(`Scoring failed: ${res.data.lastError}`);
+        }
+      } catch {
+        // A status this page could not read is not a scoring failure. The call
+        // and its report, if any, are already on screen.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, params.id, loading]);
 
   /**
    * ── RE-EVALUATE (owner ruling 2026-09-15) ────────────────────────────────
@@ -183,6 +226,7 @@ export default function CallDetailPage() {
         if (status !== 'queued' && status !== 'processing') {
           if (cancelled) return;
           setScoringPending(false);
+          setQueuedSince(null);
           if (status === 'failed') {
             setRescoreError(
               res.data?.lastError
@@ -306,9 +350,16 @@ export default function CallDetailPage() {
 
               {scoringPending && (
                 <p className="mt-4 border-t border-bean-line pt-3 text-[12.5px] text-bean-muted">
-                  Scoring this call again. It takes two to three minutes; the report below
-                  is the previous one until the new score replaces it. This page updates on
-                  its own.
+                  {queuedSince
+                    /* Already waiting when the page opened. Saying "two to three
+                       minutes" here would be a guess contradicted by the queue:
+                       jobs run one at a time and can wait far longer. */
+                    ? `Queued for scoring since ${new Date(queuedSince).toLocaleTimeString()}. `
+                      + 'Calls are scored one at a time, so this can wait behind others. '
+                      + 'This page updates on its own.'
+                    : 'Scoring this call. It takes two to three minutes; the report below '
+                      + 'is the previous one until the new score replaces it. This page '
+                      + 'updates on its own.'}
                 </p>
               )}
               {rescoreError && (
