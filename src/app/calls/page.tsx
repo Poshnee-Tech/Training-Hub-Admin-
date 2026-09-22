@@ -6,6 +6,7 @@ import AdminSidebar from '@/components/layout/AdminSidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { admin } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import AgentSearch, { type AgentOption } from '@/components/ui/AgentSearch';
 
 /** Chip tints in the warm content theme — blue/purple/green are the legacy
     light palette and would punch through the cream surface here. */
@@ -72,6 +73,8 @@ export default function CallsPage() {
    */
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
+  /** Picked from the suggestions. An id filters exactly where text guesses. */
+  const [agent, setAgent] = useState<AgentOption | null>(null);
 
   useEffect(() => {
     loadFromStorage();
@@ -81,7 +84,7 @@ export default function CallsPage() {
     if (!token) return;
     void loadCalls();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, page, filters.campaign, filters.status, search]);
+  }, [token, page, filters.campaign, filters.status, search, agent]);
 
   // Settle the typing before asking the server.
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function CallsPage() {
   // and reads as "this person has no calls".
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, agent]);
 
   async function loadCalls() {
     if (!token) return;
@@ -109,7 +112,9 @@ export default function CallsPage() {
 
       if (filters.campaign) params.campaign = filters.campaign;
       if (filters.status) params.status = filters.status;
-      if (search) params.search = search;
+      // An id beats the text it came from: one person exactly, not a LIKE.
+      if (agent) params.agentId = agent.id;
+      else if (search) params.search = search;
 
       const res = await admin.listCalls(token, params);
       setCalls(res.data);
@@ -121,7 +126,7 @@ export default function CallsPage() {
     }
   }
 
-  const hasFilters = !!filters.campaign || !!filters.status || !!search;
+  const hasFilters = !!filters.campaign || !!filters.status || !!search || !!agent;
 
   const pageStats = useMemo(() => {
     const completed = calls.filter((call) => call.status === 'COMPLETED').length;
@@ -264,13 +269,13 @@ export default function CallsPage() {
                   ledger rather than only on the page already loaded. */}
               <div className="min-w-0 flex-1">
                 <Label>Search</Label>
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                <AgentSearch
+                  query={query}
+                  onQueryChange={setQuery}
+                  selected={agent}
+                  onSelect={setAgent}
                   placeholder="Agent name, email, or customer…"
-                  aria-label="Search calls by agent or customer"
-                  className={`${FIELD} w-full xl:max-w-[280px]`}
+                  className="w-full xl:max-w-[280px]"
                 />
               </div>
 
@@ -323,6 +328,7 @@ export default function CallsPage() {
                     // button look broken, since the list stays filtered.
                     setQuery('');
                     setSearch('');
+                    setAgent(null);
                     setPage(1);
                   }}
                   className="rounded-xl px-3 py-2.5 text-[12.5px] font-semibold text-bean-muted transition hover:bg-bean-card2 hover:text-bean-brand"
@@ -527,6 +533,7 @@ export default function CallsPage() {
                         setFilters({ campaign: '', status: '' });
                         setQuery('');
                         setSearch('');
+                        setAgent(null);
                         setPage(1);
                       }}
                       className="mt-5 rounded-xl border border-bean-line bg-bean-card px-4 py-2.5 text-[13px] font-semibold text-bean-muted transition hover:border-bean-line2 hover:text-bean-ink"
