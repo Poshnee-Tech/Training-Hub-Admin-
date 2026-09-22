@@ -134,11 +134,16 @@ export default function CallDetailPage() {
    */
   const reEvaluate = useCallback(async () => {
     if (!token || !params.id || rescoring || scoringPending) return;
-    if (!window.confirm(
-      'Re-evaluate this call?\n\n'
-      + 'The current report is replaced by a newly generated one and the old '
-      + 'score is not kept. The new score may be higher or lower.',
-    )) return;
+    // A call with no report has nothing to lose, so it is not warned about
+    // losing one. The destructive warning belongs only to the destructive case.
+    const confirmText = call?.evaluation
+      ? 'Re-evaluate this call?\n\n'
+        + 'The current report is replaced by a newly generated one and the old '
+        + 'score is not kept. The new score may be higher or lower.'
+      : 'Evaluate this call?\n\n'
+        + 'This call has no report yet. Scoring takes a few minutes, and longer '
+        + 'if other calls are queued ahead of it.';
+    if (!window.confirm(confirmText)) return;
 
     setRescoreError(null);
     setRescoring(true);
@@ -150,7 +155,7 @@ export default function CallDetailPage() {
     } finally {
       setRescoring(false);
     }
-  }, [token, params.id, rescoring, scoringPending]);
+  }, [token, params.id, rescoring, scoringPending, call?.evaluation]);
 
   /**
    * Poll while the worker holds the job, then reload the call so the new
@@ -264,11 +269,23 @@ export default function CallDetailPage() {
                     )}
                   </div>
                 </div>
-                {call?.evaluation && (
+                {/* ── SCORING THE UNSCORED, NOT ONLY THE RESCORED ────────────
+                    This block used to render only when `call.evaluation`
+                    existed, so a call that was never scored had no button at
+                    all. MEASURED (2026-09-22, production): 22 evaluation jobs
+                    DEAD and 21 PENDING — every one of those calls shows no
+                    score and, until now, offered no way to ask for one. The
+                    queue refuses a duplicate while a job is PENDING or
+                    PROCESSING, so the button is safe to press at any time. */}
+                {call && (
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    <div className={`text-4xl font-extrabold ${scoreColor(call.evaluation.overallScore)}`}>
-                      {call.evaluation.overallScore}%
-                    </div>
+                    {call.evaluation ? (
+                      <div className={`text-4xl font-extrabold ${scoreColor(call.evaluation.overallScore)}`}>
+                        {call.evaluation.overallScore}%
+                      </div>
+                    ) : (
+                      <div className="text-[13.5px] font-semibold text-bean-muted">Not scored</div>
+                    )}
                     {/* Re-scoring lives here, not on the trainee's own report.
                         See the reEvaluate comment above for why. */}
                     <button
@@ -277,7 +294,11 @@ export default function CallDetailPage() {
                       disabled={rescoring || scoringPending}
                       className="inline-flex min-h-9 items-center justify-center rounded-lg border border-bean-line bg-bean-card px-3.5 py-1.5 text-[12.5px] font-semibold normal-case tracking-normal text-bean-ink transition-colors hover:border-bean-brand/40 hover:bg-bean-brand/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {rescoring ? 'Starting…' : scoringPending ? 'Re-evaluating…' : 'Re-evaluate'}
+                      {rescoring
+                        ? 'Starting…'
+                        : scoringPending
+                          ? (call.evaluation ? 'Re-evaluating…' : 'Evaluating…')
+                          : (call.evaluation ? 'Re-evaluate' : 'Evaluate')}
                     </button>
                   </div>
                 )}
