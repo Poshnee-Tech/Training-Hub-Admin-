@@ -552,7 +552,7 @@ export default function CallDetailPage() {
                       <p className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${msg.role === 'AGENT' ? 'opacity-75' : 'text-bean-faint'}`}>
                         {msg.role === 'AGENT' ? 'Agent' : 'Customer'}
                       </p>
-                      <p className="text-[13.5px] leading-relaxed">{msg.content}</p>
+                      <MessageText msg={msg} />
                     </div>
                     {/* The evaluator's marks against this exact line. */}
                     {annotations.map((annotation: any) => (
@@ -586,5 +586,57 @@ function Chip({ className = '', children }: { className?: string; children: Reac
     <span className={`admin-pill ${className}`}>
       {children}
     </span>
+  );
+}
+
+/**
+ * A customer line the trainee talked over.
+ *
+ * `content` holds only the whole sentences the trainee actually heard — it is
+ * what memory, scoring evidence and consent are built from, so it is never
+ * edited for display. When the trainee cut in mid-sentence the backend also
+ * records `metadata.displayText`: those heard sentences, an estimate of how far
+ * into the next one she got, and "—". The estimated part is shown lighter so a
+ * reviewer never mistakes it for a finished statement.
+ *
+ * Rows from before `displayText` existed still carry `metadata.audible: false`
+ * with empty content; those show as cut off rather than as an empty bubble.
+ */
+const CUT_MARK = '—';
+
+function MessageText({ msg }: { msg: any }) {
+  const meta = msg?.metadata && typeof msg.metadata === 'object' ? msg.metadata : {};
+  const heard: string = typeof msg?.content === 'string' ? msg.content : '';
+  const display: string | null = msg?.role === 'CUSTOMER' && typeof meta.displayText === 'string' ? meta.displayText : null;
+  const unheard = msg?.role === 'CUSTOMER' && !display && !heard.trim() && meta.audible === false;
+
+  if (!display && !unheard) {
+    return <p className="text-[13.5px] leading-relaxed">{heard}</p>;
+  }
+
+  const tag = (
+    <span className="ml-2 inline-block rounded-full border border-bean-line px-1.5 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-bean-faint">
+      Interrupted
+    </span>
+  );
+
+  if (unheard || display === CUT_MARK) {
+    return (
+      <p className="text-[13.5px] italic leading-relaxed text-bean-muted">
+        Cut off before a word was heard{tag}
+      </p>
+    );
+  }
+
+  // Heard whole sentences as normal text; the estimated remainder lighter.
+  const prefix = heard.trim() && display!.startsWith(heard.trim()) ? heard.trim() : '';
+  const rest = display!.slice(prefix.length).trim();
+  return (
+    <p className="text-[13.5px] leading-relaxed" title="The trainee spoke over the customer here. The faded part is an estimate of what was heard before the cut.">
+      {prefix}
+      {prefix && rest ? ' ' : ''}
+      <span className="text-bean-muted">{rest}</span>
+      {tag}
+    </p>
   );
 }
