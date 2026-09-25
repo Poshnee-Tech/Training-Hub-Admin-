@@ -607,7 +607,8 @@ const CUT_MARK = '—';
 function MessageText({ msg }: { msg: any }) {
   const meta = msg?.metadata && typeof msg.metadata === 'object' ? msg.metadata : {};
   const heard: string = typeof msg?.content === 'string' ? msg.content : '';
-  const display: string | null = msg?.role === 'CUSTOMER' && typeof meta.displayText === 'string' ? meta.displayText : null;
+  const failed = msg?.role === 'CUSTOMER' && ['tts_incomplete', 'playback_unresolved'].includes(meta.interruptionReason);
+  const display: string | null = msg?.role === 'CUSTOMER' && typeof meta.displayText === 'string' ? meta.displayText : failed ? `${heard}…` : null;
   const unheard = msg?.role === 'CUSTOMER' && !display && !heard.trim() && meta.audible === false;
 
   if (!display && !unheard) {
@@ -616,14 +617,14 @@ function MessageText({ msg }: { msg: any }) {
 
   const tag = (
     <span className="ml-2 inline-block rounded-full border border-bean-line px-1.5 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-bean-faint">
-      Interrupted
+      {failed ? 'Audio problem' : 'Interrupted'}
     </span>
   );
 
-  if (unheard || display === CUT_MARK) {
+  if (unheard || display === CUT_MARK || display === '…') {
     return (
       <p className="text-[13.5px] italic leading-relaxed text-bean-muted">
-        Cut off before a word was heard{tag}
+        {failed ? 'Audio ended before any words could be confirmed' : 'Cut off before a word was heard'}{tag}
       </p>
     );
   }
@@ -632,7 +633,7 @@ function MessageText({ msg }: { msg: any }) {
   const prefix = heard.trim() && display!.startsWith(heard.trim()) ? heard.trim() : '';
   const rest = display!.slice(prefix.length).trim();
   return (
-    <p className="text-[13.5px] leading-relaxed" title="The trainee spoke over the customer here. The faded part is an estimate of what was heard before the cut.">
+    <p className="text-[13.5px] leading-relaxed" title={failed ? 'Audio delivery failed. The faded part is an estimate of what played.' : 'The trainee spoke over the customer here. The faded part is an estimate of what was heard before the cut.'}>
       {prefix}
       {prefix && rest ? ' ' : ''}
       <span className="text-bean-muted">{rest}</span>
