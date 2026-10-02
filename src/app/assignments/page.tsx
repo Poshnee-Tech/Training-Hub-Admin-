@@ -609,6 +609,10 @@ export default function AssignmentsPage() {
                                 <DifficultyBadge
                                   difficulty={s.difficulty}
                                 />
+
+                                <OutcomeBadge
+                                  outcome={s.destinationOutcome}
+                                />
                               </span>
                             </label>
                           );
@@ -1081,7 +1085,7 @@ export default function AssignmentsPage() {
                   </HeadCell>
 
                   <HeadCell>
-                    Difficulty
+                    Difficulty · Outcome
                   </HeadCell>
 
                   <HeadCell>
@@ -1149,9 +1153,15 @@ export default function AssignmentsPage() {
                         campaign={a.scenario?.campaign}
                       />
 
-                      <DifficultyBadge
-                        difficulty={a.scenario?.difficulty}
-                      />
+                      <span className="flex flex-wrap gap-1">
+                        <DifficultyBadge
+                          difficulty={a.scenario?.difficulty}
+                        />
+
+                        <OutcomeBadge
+                          outcome={a.scenario?.destinationOutcome}
+                        />
+                      </span>
 
                       <span className="pr-3 text-ledger-muted">
                         <span className="block">
@@ -1483,6 +1493,30 @@ function DifficultyBadge({
   return (
     <span className={`admin-pill w-fit ${cls}`}>
       {difficulty ?? '·'}
+    </span>
+  );
+}
+
+/** The scenario's intended end of call (Transfer, Callback, …). Nothing when it is not set. */
+function OutcomeBadge({
+  outcome,
+}: {
+  outcome?: string | null;
+}) {
+  if (!outcome) return null;
+
+  const cls =
+    outcome === 'TRANSFER'
+      ? 'bg-ledger-good-bg text-ledger-good'
+      : outcome === 'CALLBACK'
+        ? 'bg-ledger-gold/15 text-ledger-gold'
+        : outcome === 'DNQ' || outcome === 'DNC'
+          ? 'bg-ledger-bad-bg text-ledger-bad'
+          : 'bg-ledger-line/30 text-ledger-muted';
+
+  return (
+    <span className={`admin-pill w-fit ${cls}`}>
+      {outcome.replace(/_/g, ' ')}
     </span>
   );
 }
