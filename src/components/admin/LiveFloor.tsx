@@ -15,6 +15,7 @@ import LiveListener, { audioContextFromClick } from './LiveListener';
  */
 
 const POLL_MS = 5000;
+const PAGE_SIZE = 10;
 
 const STATUS_LABEL: Record<FloorAgent['status'], string> = {
   ON_CALL: 'On a call',
@@ -78,7 +79,9 @@ function CountTile({ label, value, tone, pulse, selected, onClick }: {
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      aria-label={`Show agents: ${label.toLowerCase()}`}
+      aria-label={`${selected ? 'Hide' : 'Show'} agents: ${label.toLowerCase()}`}
+      aria-expanded={selected}
+      aria-controls="live-floor-agents"
       className={`air-panel flex items-center gap-3 rounded-[16px] border px-4 py-3 text-left transition hover:border-air-mint/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-air-mint ${selected ? 'border-air-mint/60 ring-1 ring-air-mint/30' : ''}`}
     >
       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot} ${pulse ? 'animate-air-blink' : ''}`} aria-hidden />
@@ -123,13 +126,24 @@ export default function LiveFloor({ token }: { token: string | null }) {
   // floor refreshes (and after the call ends).
   const [listening, setListening] = useState<{ agent: FloorAgent; audio: AudioContext } | null>(null);
   const listeningTo = listening?.agent ?? null;
-  const [filter, setFilter] = useState<'ALL' | FloorAgent['status']>('ALL');
+  const [filter, setFilter] = useState<'ALL' | FloorAgent['status'] | null>(null);
+  const [page, setPage] = useState(1);
+
+  function toggleFilter(next: 'ALL' | FloorAgent['status']) {
+    setFilter((current) => current === next ? null : next);
+    setPage(1);
+  }
 
   const onCall = data?.agents.filter((a) => a.status === 'ON_CALL') ?? [];
   const onBreak = data?.agents.filter((a) => a.status === 'ON_BREAK') ?? [];
   const idle = data?.agents.filter((a) => a.status === 'NOT_ON_CALL') ?? [];
   const agents = filter === 'ALL' ? [...onCall, ...onBreak, ...idle]
-    : filter === 'ON_CALL' ? onCall : filter === 'ON_BREAK' ? onBreak : idle;
+    : filter === 'ON_CALL' ? onCall : filter === 'ON_BREAK' ? onBreak : filter === 'NOT_ON_CALL' ? idle : [];
+  const totalPages = Math.max(1, Math.ceil(agents.length / PAGE_SIZE));
+  // Live updates may shrink the list while the admin is on its last page.
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedAgents = agents.slice(pageStart, pageStart + PAGE_SIZE);
   const emptyMessage = filter === 'ON_CALL' ? 'Nobody is on a call.'
     : filter === 'ON_BREAK' ? 'Nobody is on a break.'
       : filter === 'NOT_ON_CALL' ? 'No agents are currently off call.' : 'No agents to show.';
@@ -148,9 +162,9 @@ export default function LiveFloor({ token }: { token: string | null }) {
       </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <CountTile label="On a call" value={data ? data.counts.onCall : '—'} tone="live" pulse={!!data && data.counts.onCall > 0} selected={filter === 'ON_CALL'} onClick={() => setFilter('ON_CALL')} />
-        <CountTile label="On break" value={data ? data.counts.onBreak : '—'} tone="amber" selected={filter === 'ON_BREAK'} onClick={() => setFilter('ON_BREAK')} />
-        <CountTile label="Not on a call" value={data ? data.counts.notOnCall : '—'} tone="muted" selected={filter === 'NOT_ON_CALL'} onClick={() => setFilter('NOT_ON_CALL')} />
+        <CountTile label="On a call" value={data ? data.counts.onCall : '—'} tone="live" pulse={!!data && data.counts.onCall > 0} selected={filter === 'ON_CALL'} onClick={() => toggleFilter('ON_CALL')} />
+        <CountTile label="On break" value={data ? data.counts.onBreak : '—'} tone="amber" selected={filter === 'ON_BREAK'} onClick={() => toggleFilter('ON_BREAK')} />
+        <CountTile label="Not on a call" value={data ? data.counts.notOnCall : '—'} tone="muted" selected={filter === 'NOT_ON_CALL'} onClick={() => toggleFilter('NOT_ON_CALL')} />
       </div>
 
       {!data ? (
@@ -158,25 +172,27 @@ export default function LiveFloor({ token }: { token: string | null }) {
           {error ? `Could not load the floor: ${error}` : 'Loading the floor…'}
         </p>
       ) : (
-        <div>
+        <div id="live-floor-agents">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h3 aria-live="polite" className="font-mono-ui text-[10.5px] font-bold uppercase tracking-[0.1em] text-air-muted">
-              {filter === 'ALL' ? 'All agents' : STATUS_LABEL[filter]} ({agents.length})
+              {filter === null ? 'Click a status to show agents' : `${filter === 'ALL' ? 'All agents' : STATUS_LABEL[filter]} (${agents.length})`}
             </h3>
             <button
               type="button"
-              onClick={() => setFilter('ALL')}
+              onClick={() => toggleFilter('ALL')}
               aria-pressed={filter === 'ALL'}
+              aria-expanded={filter === 'ALL'}
+              aria-controls="live-floor-agents"
               className={`rounded-full border px-3 py-1.5 font-mono-ui text-[10px] font-bold uppercase tracking-[0.08em] transition hover:border-air-mint/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-air-mint ${filter === 'ALL' ? 'border-air-mint/50 bg-air-mint/[0.08] text-air-mint' : 'border-air-line/20 text-air-muted'}`}
             >
               All agents
             </button>
           </div>
-          {agents.length === 0 ? (
+          {filter === null ? null : agents.length === 0 ? (
             <p className="py-4 text-center text-[12.5px] text-air-faint">{emptyMessage}</p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {agents.map((a) => (
+              {pagedAgents.map((a) => (
                 <AgentRow
                   key={a.id}
                   agent={a}
@@ -209,6 +225,34 @@ export default function LiveFloor({ token }: { token: string | null }) {
                   )}
                 </AgentRow>
               ))}
+            </div>
+          )}
+          {filter !== null && agents.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p aria-live="polite" className="text-[12px] text-air-muted">
+                Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, agents.length)} of {agents.length} agents
+              </p>
+              {totalPages > 1 && (
+                <nav aria-label="Live floor pagination" className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="rounded-full border border-air-line/20 px-3 py-1.5 text-[12px] text-air-muted transition hover:border-air-mint/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-air-mint disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-[12px] text-air-muted">Page {currentPage} of {totalPages}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="rounded-full border border-air-line/20 px-3 py-1.5 text-[12px] text-air-muted transition hover:border-air-mint/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-air-mint disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </nav>
+              )}
             </div>
           )}
         </div>
