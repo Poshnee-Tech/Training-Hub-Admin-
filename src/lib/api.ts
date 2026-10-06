@@ -84,6 +84,18 @@ export async function authenticatedFetch(
   return res;
 }
 
+/**
+ * The backend's error text, whatever shape it arrives in. Every route sends
+ * `error` as text, but the auth rate limiter once sent an object, and
+ * `new Error(object)` printed "[object Object]" on the login page.
+ */
+export function errorText(body: unknown, fallback: string): string {
+  const error = (body as { error?: unknown } | null | undefined)?.error;
+  if (typeof error === 'string' && error.trim()) return error;
+  const message = (error as { message?: unknown } | null | undefined)?.message;
+  return typeof message === 'string' && message.trim() ? message : fallback;
+}
+
 async function request<T>(endpoint: string, options: { method?: string; body?: any; token?: string } = {}): Promise<T> {
   const { method = 'GET', body, token } = options;
   // X-Portal is set for every request in sessionFetch, including the media and
@@ -116,14 +128,14 @@ async function request<T>(endpoint: string, options: { method?: string; body?: a
     // login succeeded and then immediately went stale.
     if (endpoint.startsWith('/api/auth/login')) {
       const failed = await res.json().catch(() => ({} as any));
-      throw new Error(failed.error || 'Invalid email or password.');
+      throw new Error(errorText(failed, 'Invalid email or password.'));
     }
     handleUnauthorized();
     throw new Error('Session expired. Please log in again.');
   }
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'API request failed');
+  if (!res.ok) throw new Error(errorText(data, 'API request failed'));
   return data;
 }
 
@@ -534,7 +546,7 @@ export const contentApi = {
     const text = await res.text();
     let data: any = {};
     try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON error page */ }
-    if (!res.ok) throw new Error(data.error || `Upload failed with status ${res.status}`);
+    if (!res.ok) throw new Error(errorText(data, `Upload failed with status ${res.status}`));
     return data;
   },
 
@@ -665,7 +677,7 @@ export const contentApi = {
     const text = await res.text();
     let data: any = {};
     try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON error page */ }
-    if (!res.ok) throw new Error(data.error || `Upload failed with status ${res.status}`);
+    if (!res.ok) throw new Error(errorText(data, `Upload failed with status ${res.status}`));
     return data;
   },
 };
