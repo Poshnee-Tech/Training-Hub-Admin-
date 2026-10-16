@@ -200,7 +200,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
-            {/* ── tracks side by side: CSR and Self Verifier are never mixed ── */}
+            {/* ── tracks side by side: Fronter and Self Verifier are never mixed ── */}
             {Array.isArray(data.byTrack) && (
               <div className="mb-6 grid gap-4 md:grid-cols-2">
                 {data.byTrack.map((t: { track: Track; agents: number; activeAgents: number; callsThisWeek: number; averageScore: number }) => (

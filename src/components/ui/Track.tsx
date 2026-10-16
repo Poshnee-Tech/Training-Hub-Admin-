@@ -8,12 +8,12 @@
 import type { Track } from '@/lib/api';
 
 export const TRACK_OPTIONS: ReadonlyArray<{ value: Track; label: string }> = [
-  { value: 'CSR', label: 'CSR' },
+  { value: 'CSR', label: 'Fronter' },
   { value: 'SELF_VERIFIER', label: 'Self Verifier' },
 ];
 
 export function trackLabel(track?: string | null): string {
-  return TRACK_OPTIONS.find((t) => t.value === track)?.label ?? 'CSR';
+  return TRACK_OPTIONS.find((t) => t.value === track)?.label ?? 'Fronter';
 }
 
 // Written out in full: Tailwind only sees literal class names.
@@ -27,7 +27,7 @@ export function TrackBadge({ track, className = '' }: { track?: Track | null; cl
   return <span className={`admin-pill w-fit ${BADGE[t]} ${className}`}>{trackLabel(t)}</span>;
 }
 
-/** All / CSR / Self Verifier. `''` means all. */
+/** All / Fronter / Self Verifier. `''` means all. */
 export function TrackFilter({
   value,
   onChange,
