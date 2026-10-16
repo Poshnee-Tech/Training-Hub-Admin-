@@ -42,7 +42,8 @@ import CategoryBars from '@/components/admin/CategoryBars';
 import VolumeColumns from '@/components/admin/VolumeColumns';
 import CampaignBreakdown from '@/components/admin/CampaignBreakdown';
 import { useAuthStore } from '@/store/auth.store';
-import { admin } from '@/lib/api';
+import { admin, type Track } from '@/lib/api';
+import { trackLabel } from '@/components/ui/Track';
 import {
   CATEGORIES,
   WINDOW_DAYS,
@@ -60,6 +61,7 @@ export default function AnalyticsPage() {
 
   const [campaign, setCampaign] = useState('');
   const [agent, setAgent] = useState<Agent | null>(null);
+  const [track, setTrack] = useState<Track | ''>('');
 
   const [overview, setOverview] = useState<any>(null);
   const [trends, setTrends] = useState<any>(null);
@@ -86,12 +88,12 @@ export default function AnalyticsPage() {
     // First load blocks on a spinner; a scope change holds the old render.
     if (overview) setRefreshing(true);
 
-    const scope = { campaign: campaign || undefined, agentId: agent?.id };
+    const scope = { campaign: campaign || undefined, agentId: agent?.id, track: track || undefined };
 
     Promise.all([
       admin.analyticsOverview(token, scope),
       admin.trends(token, scope),
-      ...campaignsInScope.map((c) => admin.campaignAnalytics(token, c, agent?.id)),
+      ...campaignsInScope.map((c) => admin.campaignAnalytics(token, c, agent?.id, track || undefined)),
     ])
       .then(([overviewRes, trendsRes, ...campaignRes]) => {
         if (cancelled) return;
@@ -118,7 +120,7 @@ export default function AnalyticsPage() {
     // between the spinner and the held frame, and including it would refetch
     // every time the data it just fetched arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, campaign, agent?.id, campaignsInScope, refreshKey]);
+  }, [token, campaign, agent?.id, track, campaignsInScope, refreshKey]);
 
   const evaluations = trends?.evaluations ?? [];
 
@@ -146,11 +148,13 @@ export default function AnalyticsPage() {
   const scopeLine = useMemo(() => {
     const who = agent ? agentLabel(agent) : 'Every agent';
     const what = campaign ? campaignLabel(campaign) : 'all campaigns';
-    return `${who} · ${what}`;
-  }, [agent, campaign]);
+    const which = track ? trackLabel(track) : 'both tracks';
+    return `${who} · ${what} · ${which}`;
+  }, [agent, campaign, track]);
 
   const onCampaign = useCallback((next: string) => setCampaign(next), []);
   const onAgent = useCallback((next: Agent | null) => setAgent(next), []);
+  const onTrack = useCallback((next: Track | '') => setTrack(next), []);
 
   return (
     <div className="flex">
@@ -211,16 +215,17 @@ export default function AnalyticsPage() {
               <div>
                 <h2 className="text-[13.5px] font-bold text-air-text">Analytics scope</h2>
                 <p className="mt-0.5 text-[11.5px] text-air-muted">
-                  Every chart below uses the same campaign and agent selection.
+                  Every chart below uses the same campaign, track and agent selection.
                 </p>
               </div>
 
-              {(campaign || agent) && (
+              {(campaign || agent || track) && (
                 <button
                   type="button"
                   onClick={() => {
                     setCampaign('');
                     setAgent(null);
+                    setTrack('');
                   }}
                   disabled={refreshing}
                   className="rounded-xl border border-air-line bg-air-panel px-3 py-2 text-[12px] font-semibold text-air-muted transition hover:text-air-text disabled:opacity-50"
@@ -234,8 +239,10 @@ export default function AnalyticsPage() {
               token={token}
               campaign={campaign}
               agent={agent}
+              track={track}
               onCampaign={onCampaign}
               onAgent={onAgent}
+              onTrack={onTrack}
               busy={refreshing}
             />
           </section>

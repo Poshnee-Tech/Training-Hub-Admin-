@@ -6,7 +6,8 @@ import Link from 'next/link';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 import EnrollAgentModal from '@/components/agents/EnrollAgentModal';
 import { useAuthStore } from '@/store/auth.store';
-import { admin } from '@/lib/api';
+import { admin, type Track } from '@/lib/api';
+import { TrackBadge, TrackFilter } from '@/components/ui/Track';
 import { formatDate } from '@/lib/utils';
 
 /**
@@ -58,6 +59,7 @@ export default function AgentsPage() {
 
   /** Which accounts the ledger is showing. Filtered here, not on the server. */
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DISABLED'>('ALL');
+  const [trackFilter, setTrackFilter] = useState<Track | ''>('');
 
   /** The agent whose Disable is waiting on a second click, and the row mid-save. */
   const [confirmingOff, setConfirmingOff] = useState<string | null>(null);
@@ -135,12 +137,17 @@ export default function AgentsPage() {
       )
     : 0;
 
-  const visible =
-    statusFilter === 'ALL'
-      ? agents
-      : agents.filter((a) => (statusFilter === 'ACTIVE' ? a.isActive : !a.isActive));
+  const visible = agents
+    .filter((a) => statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? a.isActive : !a.isActive))
+    .filter((a) => !trackFilter || (a.track ?? 'CSR') === trackFilter);
 
-  const hasFilters = statusFilter !== 'ALL' || !!search.trim();
+  const trackCounts = {
+    ALL: agents.length,
+    CSR: agents.filter((a) => (a.track ?? 'CSR') === 'CSR').length,
+    SELF_VERIFIER: agents.filter((a) => a.track === 'SELF_VERIFIER').length,
+  };
+
+  const hasFilters = statusFilter !== 'ALL' || !!trackFilter || !!search.trim();
 
   return (
     <div className="flex">
@@ -289,12 +296,15 @@ export default function AgentsPage() {
                   ))}
                 </div>
 
+                <TrackFilter value={trackFilter} onChange={setTrackFilter} counts={trackCounts} />
+
                 {hasFilters && (
                   <button
                     type="button"
                     onClick={() => {
                       setSearch('');
                       setStatusFilter('ALL');
+                      setTrackFilter('');
                       setConfirmingOff(null);
                     }}
                     className="rounded-xl px-3 py-2.5 text-[12.5px] font-semibold text-ledger-muted transition hover:bg-ledger-bg2 hover:text-ledger-brand"
@@ -337,9 +347,7 @@ export default function AgentsPage() {
                         </span>
                         <span className="min-w-0">
                           <span className="block truncate font-semibold text-ledger-ink">{full || '·'}</span>
-                          <span className="mt-0.5 block truncate font-mono-ui text-[9.5px] uppercase tracking-[0.05em] text-ledger-faint">
-                            Agent
-                          </span>
+                          <TrackBadge track={agent.track} className="mt-1" />
                         </span>
                       </div>
 

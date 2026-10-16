@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { admin, type FloorAgent, type FloorView } from '@/lib/api';
+import { admin, type FloorAgent, type FloorView, type Track } from '@/lib/api';
+import { TrackBadge, TrackFilter } from '@/components/ui/Track';
 import { useQuietPoll } from '@/lib/use-quiet-poll';
 import LiveListener, { audioContextFromClick } from './LiveListener';
 
@@ -105,7 +106,10 @@ function AgentRow({ agent, breakLimit, children, action }: { agent: FloorAgent; 
             <Elapsed since={agent.since} limitSeconds={agent.status === 'ON_BREAK' ? breakLimit : undefined} />
           )}
         </div>
-        <p className="truncate text-[13.5px] font-semibold text-air-text">{agent.name}</p>
+        <p className="flex items-center gap-2">
+          <span className="truncate text-[13.5px] font-semibold text-air-text">{agent.name}</span>
+          <TrackBadge track={agent.track} />
+        </p>
         {children}
       </Link>
       {action && <div className="px-3.5 pb-3">{action}</div>}
@@ -127,6 +131,7 @@ export default function LiveFloor({ token }: { token: string | null }) {
   const [listening, setListening] = useState<{ agent: FloorAgent; audio: AudioContext } | null>(null);
   const listeningTo = listening?.agent ?? null;
   const [filter, setFilter] = useState<'ALL' | FloorAgent['status'] | null>(null);
+  const [track, setTrack] = useState<Track | ''>('');
   const [page, setPage] = useState(1);
 
   function toggleFilter(next: 'ALL' | FloorAgent['status']) {
@@ -134,9 +139,11 @@ export default function LiveFloor({ token }: { token: string | null }) {
     setPage(1);
   }
 
-  const onCall = data?.agents.filter((a) => a.status === 'ON_CALL') ?? [];
-  const onBreak = data?.agents.filter((a) => a.status === 'ON_BREAK') ?? [];
-  const idle = data?.agents.filter((a) => a.status === 'NOT_ON_CALL') ?? [];
+  // The track filter narrows the counts too, so the tiles describe what is shown.
+  const pool = data?.agents.filter((a) => !track || (a.track ?? 'CSR') === track) ?? [];
+  const onCall = pool.filter((a) => a.status === 'ON_CALL');
+  const onBreak = pool.filter((a) => a.status === 'ON_BREAK');
+  const idle = pool.filter((a) => a.status === 'NOT_ON_CALL');
   const agents = filter === 'ALL' ? [...onCall, ...onBreak, ...idle]
     : filter === 'ON_CALL' ? onCall : filter === 'ON_BREAK' ? onBreak : filter === 'NOT_ON_CALL' ? idle : [];
   const totalPages = Math.max(1, Math.ceil(agents.length / PAGE_SIZE));
@@ -162,9 +169,9 @@ export default function LiveFloor({ token }: { token: string | null }) {
       </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <CountTile label="On a call" value={data ? data.counts.onCall : '—'} tone="live" pulse={!!data && data.counts.onCall > 0} selected={filter === 'ON_CALL'} onClick={() => toggleFilter('ON_CALL')} />
-        <CountTile label="On break" value={data ? data.counts.onBreak : '—'} tone="amber" selected={filter === 'ON_BREAK'} onClick={() => toggleFilter('ON_BREAK')} />
-        <CountTile label="Not on a call" value={data ? data.counts.notOnCall : '—'} tone="muted" selected={filter === 'NOT_ON_CALL'} onClick={() => toggleFilter('NOT_ON_CALL')} />
+        <CountTile label="On a call" value={data ? onCall.length : '—'} tone="live" pulse={onCall.length > 0} selected={filter === 'ON_CALL'} onClick={() => toggleFilter('ON_CALL')} />
+        <CountTile label="On break" value={data ? onBreak.length : '—'} tone="amber" selected={filter === 'ON_BREAK'} onClick={() => toggleFilter('ON_BREAK')} />
+        <CountTile label="Not on a call" value={data ? idle.length : '—'} tone="muted" selected={filter === 'NOT_ON_CALL'} onClick={() => toggleFilter('NOT_ON_CALL')} />
       </div>
 
       {!data ? (
@@ -177,6 +184,14 @@ export default function LiveFloor({ token }: { token: string | null }) {
             <h3 aria-live="polite" className="font-mono-ui text-[10.5px] font-bold uppercase tracking-[0.1em] text-air-muted">
               {filter === null ? 'Click a status to show agents' : `${filter === 'ALL' ? 'All agents' : STATUS_LABEL[filter]} (${agents.length})`}
             </h3>
+            <TrackFilter
+              className="ml-auto"
+              value={track}
+              onChange={(next) => {
+                setTrack(next);
+                setPage(1);
+              }}
+            />
             <button
               type="button"
               onClick={() => toggleFilter('ALL')}

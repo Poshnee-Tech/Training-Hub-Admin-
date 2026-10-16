@@ -163,13 +163,17 @@ export const auth = {
     sessionFetch(`${API_URL}/api/auth/logout`, undefined, { method: 'POST' }),
 };
 
-export type AnalyticsScope = { campaign?: string; agentId?: string };
+/** Which job an agent trains for. Chosen at signup; an admin can correct it. */
+export type Track = 'CSR' | 'SELF_VERIFIER';
 
-/** `?campaign=ACA&agentId=…`, or an empty string when nothing is scoped. */
+export type AnalyticsScope = { campaign?: string; agentId?: string; track?: Track };
+
+/** `?campaign=ACA&agentId=…&track=…`, or an empty string when nothing is scoped. */
 function scopeQuery(scope?: AnalyticsScope): string {
   const q = new URLSearchParams();
   if (scope?.campaign) q.set('campaign', scope.campaign);
   if (scope?.agentId) q.set('agentId', scope.agentId);
+  if (scope?.track) q.set('track', scope.track);
   const query = q.toString();
   return query ? `?${query}` : '';
 }
@@ -183,6 +187,7 @@ export interface SignupRequest {
   firstName: string;
   lastName: string;
   status: SignupRequestStatus;
+  track: Track;
   reviewedAt: string | null;
   createdAt: string;
 }
@@ -201,8 +206,11 @@ export const admin = {
    * approving is what actually makes the user. Rejecting keeps the row and
    * the reason, which the applicant is emailed verbatim.
    */
-  listSignupRequests: (token: string, status?: string) => {
-    const q = status ? '?status=' + encodeURIComponent(status) : '';
+  listSignupRequests: (token: string, status?: string, track?: Track) => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (track) params.set('track', track);
+    const q = params.toString() ? `?${params}` : '';
     return request<{ success: boolean; data: SignupRequest[] }>(
       `/api/admin/signup-requests${q}`,
       { token },
@@ -217,10 +225,11 @@ export const admin = {
    * that nobody was told about — two different facts, and the screen has to
    * be able to say both. `sent: false` never means the approval failed.
    */
-  approveSignupRequest: (token: string, id: string) =>
+  /** `track` corrects the applicant's own choice; omit it to keep theirs. */
+  approveSignupRequest: (token: string, id: string, track?: Track) =>
     request<{ success: boolean; data: SignupRequest; notified?: NotifyOutcome }>(
       `/api/admin/signup-requests/${id}/approve`,
-      { method: 'POST', token },
+      { method: 'POST', body: track ? { track } : {}, token },
     ),
 
   rejectSignupRequest: (token: string, id: string) =>
@@ -246,6 +255,7 @@ export const admin = {
       temporaryPassword: string;
       employeeId?: string;
       department?: string;
+      track?: Track;
     },
   ) => request<any>('/api/admin/agents', { method: 'POST', body, token }),
 
@@ -350,8 +360,8 @@ export const admin = {
    * further; passing a `campaign` here as well would be a contradiction
    * waiting to happen.
    */
-  campaignAnalytics: (token: string, campaign: string, agentId?: string) =>
-    request<any>(`/api/admin/analytics/campaign/${campaign}${scopeQuery({ agentId })}`, { token }),
+  campaignAnalytics: (token: string, campaign: string, agentId?: string, track?: Track) =>
+    request<any>(`/api/admin/analytics/campaign/${campaign}${scopeQuery({ agentId, track })}`, { token }),
   trends: (token: string, scope?: AnalyticsScope) =>
     request<any>(`/api/admin/analytics/trends${scopeQuery(scope)}`, { token }),
   awaitingVerifier: (token: string) => request<any>('/api/admin/calls/awaiting-verifier', { token }),
@@ -382,6 +392,8 @@ export const assignmentsExtra = {
       scheduledHour?: number;
       flowType?: 'SINGLE' | 'DUAL';
       agentRole?: 'FRONTER' | 'VERIFIER';
+      /** Every agent must be on this track; the server refuses otherwise. */
+      track?: Track;
       notes?: string;
     },
   ) => request<any>('/api/admin/assignments/customers', { method: 'POST', body, token }),
@@ -855,6 +867,7 @@ export interface FloorAgent {
   breakReason: string | null;
   customerName: string | null;
   campaign: string | null;
+  track: Track;
   callsInQueue: number;
   /** The open call's session when on a call. */
   sessionId: string | null;
