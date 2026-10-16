@@ -13,7 +13,8 @@
  */
 
 import { useState } from 'react';
-import { admin } from '@/lib/api';
+import { admin, type Track } from '@/lib/api';
+import { TrackSelect } from '@/components/ui/Track';
 
 /** Readable temp password: no ambiguous characters for someone reading it aloud. */
 function generatePassword(): string {
@@ -32,7 +33,10 @@ interface Props {
 type Errors = Partial<Record<'fullName' | 'email' | 'age' | 'trainingStartDate' | 'temporaryPassword', string>>;
 
 export default function EnrollAgentModal({ token, onClose, onEnrolled }: Props) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    fullName: string; email: string; age: string; trainingStartDate: string;
+    temporaryPassword: string; employeeId: string; department: string; track: Track;
+  }>({
     fullName: '',
     email: '',
     age: '',
@@ -40,6 +44,7 @@ export default function EnrollAgentModal({ token, onClose, onEnrolled }: Props) 
     temporaryPassword: generatePassword(),
     employeeId: '',
     department: '',
+    track: 'CSR',
   });
   const [errors, setErrors] = useState<Errors>({});
   const [submitError, setSubmitError] = useState('');
@@ -75,6 +80,7 @@ export default function EnrollAgentModal({ token, onClose, onEnrolled }: Props) 
         temporaryPassword: form.temporaryPassword,
         employeeId: form.employeeId.trim() || undefined,
         department: form.department.trim() || undefined,
+        track: form.track,
       });
 
       setEnrolled({
@@ -207,6 +213,14 @@ export default function EnrollAgentModal({ token, onClose, onEnrolled }: Props) 
                   />
                 </Field>
               </div>
+
+              <Field label="Track" required>
+                <TrackSelect
+                  className="input"
+                  value={form.track}
+                  onChange={(track) => setForm({ ...form, track })}
+                />
+              </Field>
 
               <Field label="Temporary password" error={errors.temporaryPassword} required>
                 <div className="flex gap-2">

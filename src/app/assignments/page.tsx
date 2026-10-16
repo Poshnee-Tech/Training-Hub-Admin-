@@ -9,7 +9,9 @@ import {
   assignmentsApi,
   assignmentsExtra,
   scenariosApi,
+  type Track,
 } from '@/lib/api';
+import { TRACK_OPTIONS, TrackBadge, TrackFilter, trackLabel } from '@/components/ui/Track';
 
 const AVATAR_COLORS = [
   'bg-ledger-gold',
@@ -37,6 +39,8 @@ export default function AssignmentsPage() {
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
   const [form, setForm] = useState({
+    // Step 1: only this track's agents can be picked.
+    track: 'CSR' as Track,
     agentIds: [] as string[],
     scenarioIds: [] as string[],
 
@@ -54,6 +58,7 @@ export default function AssignmentsPage() {
   // Assignment list filters
   const [filterAgent, setFilterAgent] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterTrack, setFilterTrack] = useState<Track | ''>('');
 
   // Scenario picker filters
   const [formFilterCampaign, setFormFilterCampaign] = useState('ALL');
@@ -101,7 +106,7 @@ export default function AssignmentsPage() {
     if (!token) return;
 
     loadAll();
-  }, [token, filterAgent, filterStatus]);
+  }, [token, filterAgent, filterStatus, filterTrack]);
 
   async function loadAll() {
     setLoading(true);
@@ -117,6 +122,10 @@ export default function AssignmentsPage() {
 
       if (filterStatus) {
         params.status = filterStatus;
+      }
+
+      if (filterTrack) {
+        params.track = filterTrack;
       }
 
       const [assignRes, agentsRes, scenariosRes] = await Promise.all([
@@ -171,6 +180,8 @@ export default function AssignmentsPage() {
 
         flowType: form.flowType,
 
+        track: form.track,
+
         agentRole: (
           form.flowType === 'SINGLE'
             ? 'FRONTER'
@@ -188,6 +199,7 @@ export default function AssignmentsPage() {
       );
 
       setForm({
+        track: form.track,
         agentIds: [],
         scenarioIds: [],
 
@@ -240,7 +252,9 @@ export default function AssignmentsPage() {
     loadAll();
   }
 
-  const activeAgents = agents.filter((agent) => agent.isActive);
+  const activeAgents = agents.filter(
+    (agent) => agent.isActive && (agent.track ?? 'CSR') === form.track,
+  );
 
   const shownActive = assignmentsList.filter(
     (item) => item.status === 'ACTIVE',
@@ -256,7 +270,8 @@ export default function AssignmentsPage() {
 
   const hasListFilters =
     !!filterAgent ||
-    !!filterStatus;
+    !!filterStatus ||
+    !!filterTrack;
 
   const assignmentCount =
     form.agentIds.length *
@@ -391,11 +406,13 @@ export default function AssignmentsPage() {
                   </h2>
 
                   <p className="mt-0.5 text-[11.5px] text-ledger-muted">
-                    Select customers, agents, then choose the schedule.
+                    Choose the track, then customers, agents and the schedule.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
+                  <TrackBadge track={form.track} />
+
                   <CountBadge
                     label="Customers"
                     value={form.scenarioIds.length}
@@ -420,6 +437,42 @@ export default function AssignmentsPage() {
                 {/* Step 1 */}
                 <AssignmentStep
                   number="1"
+                  title="Track"
+                  subtitle="Only agents on this track are shown below"
+                >
+                  <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Track">
+                    {TRACK_OPTIONS.map((t) => {
+                      const on = form.track === t.value;
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => {
+                            if (on) return;
+                            // Agents picked for the other track no longer apply.
+                            setForm({ ...form, track: t.value, agentIds: [] });
+                          }}
+                          className={`rounded-xl border px-4 py-3 text-left transition ${
+                            on
+                              ? 'border-ledger-brand bg-ledger-brand/[0.08] ring-2 ring-ledger-brand/20'
+                              : 'border-ledger-line hover:border-ledger-brand/40'
+                          }`}
+                        >
+                          <span className="block text-[13px] font-bold text-ledger-ink">{t.label}</span>
+                          <span className="mt-0.5 block text-[11px] text-ledger-muted">
+                            {agents.filter((a) => a.isActive && (a.track ?? 'CSR') === t.value).length} active agents
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </AssignmentStep>
+
+                {/* Step 2 */}
+                <AssignmentStep
+                  number="2"
                   title="Customers"
                   subtitle={`${form.scenarioIds.length} selected`}
                 >
@@ -667,16 +720,17 @@ export default function AssignmentsPage() {
                   </div>
                 </AssignmentStep>
 
-                {/* Step 2 */}
+                {/* Step 3 */}
                 <AssignmentStep
-                  number="2"
+                  number="3"
                   title="Agents"
                   subtitle={`${form.agentIds.length} selected`}
                 >
                   <div className="max-h-[205px] overflow-y-auto rounded-xl border border-ledger-line">
                     {activeAgents.length === 0 ? (
                       <div className="py-8 text-center text-[12px] text-ledger-muted">
-                        No active agents available.
+                        No active {trackLabel(form.track)} agents.
+
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -767,9 +821,9 @@ export default function AssignmentsPage() {
                   </div>
                 </AssignmentStep>
 
-                {/* Step 3 */}
+                {/* Step 4 */}
                 <AssignmentStep
-                  number="3"
+                  number="4"
                   title="Schedule"
                   subtitle={
                     form.flowType === 'SINGLE'
@@ -1053,12 +1107,21 @@ export default function AssignmentsPage() {
                   </select>
                 </div>
 
+                <div className="min-w-0">
+                  <Label>
+                    Track
+                  </Label>
+
+                  <TrackFilter value={filterTrack} onChange={setFilterTrack} />
+                </div>
+
                 {hasListFilters && (
                   <button
                     type="button"
                     onClick={() => {
                       setFilterAgent('');
                       setFilterStatus('');
+                      setFilterTrack('');
                     }}
                     className="rounded-lg px-3 py-2 text-[11.5px] font-semibold text-ledger-muted transition hover:bg-ledger-bg2 hover:text-ledger-brand"
                   >
@@ -1125,8 +1188,11 @@ export default function AssignmentsPage() {
                         </span>
 
                         <span className="min-w-0">
-                          <span className="block truncate font-semibold text-ledger-ink">
-                            {full || '·'}
+                          <span className="flex items-center gap-1.5">
+                            <span className="block truncate font-semibold text-ledger-ink">
+                              {full || '·'}
+                            </span>
+                            <TrackBadge track={a.track} />
                           </span>
 
                           {a.agent?.email && (

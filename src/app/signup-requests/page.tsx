@@ -15,7 +15,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 import { useAuthStore } from '@/store/auth.store';
-import { admin, type SignupRequest, type SignupRequestStatus } from '@/lib/api';
+import { admin, type SignupRequest, type SignupRequestStatus, type Track } from '@/lib/api';
+import { TrackBadge, TrackFilter, TrackSelect } from '@/components/ui/Track';
 import { formatDate } from '@/lib/utils';
 
 const TABS: { key: SignupRequestStatus | 'ALL'; label: string }[] = [
@@ -29,6 +30,9 @@ export default function SignupRequestsPage() {
   const { token, loadFromStorage } = useAuthStore();
 
   const [tab, setTab] = useState<SignupRequestStatus | 'ALL'>('PENDING');
+  const [trackFilter, setTrackFilter] = useState<Track | ''>('');
+  /** The admin's correction of an applicant's track, by request id. */
+  const [trackChoice, setTrackChoice] = useState<Record<string, Track>>({});
   const [rows, setRows] = useState<SignupRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,6 +56,7 @@ export default function SignupRequestsPage() {
       const res = await admin.listSignupRequests(
         token,
         tab === 'ALL' ? undefined : tab,
+        trackFilter || undefined,
       );
       setRows(res.data);
     } catch (err: any) {
@@ -59,7 +64,7 @@ export default function SignupRequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, tab]);
+  }, [token, tab, trackFilter]);
 
   useEffect(() => {
     void load();
@@ -79,7 +84,8 @@ export default function SignupRequestsPage() {
       // and told nobody. The claim is now read from the response: the
       // server reports whether the message went, and a failed send does not
       // fail the approval, so the two facts have to be stated separately.
-      const res = await admin.approveSignupRequest(token, row.id);
+      const chosen = trackChoice[row.id];
+      const res = await admin.approveSignupRequest(token, row.id, chosen && chosen !== row.track ? chosen : undefined);
       const notified = res?.notified;
       setNotice(
         notified && notified.sent === false
@@ -246,6 +252,14 @@ export default function SignupRequestsPage() {
                   </button>
                 );
               })}
+              <TrackFilter
+                className="ml-auto"
+                value={trackFilter}
+                onChange={(next) => {
+                  setTrackFilter(next);
+                  setConfirming(null);
+                }}
+              />
             </div>
           </section>
 
@@ -347,6 +361,7 @@ export default function SignupRequestsPage() {
                                   {fullName}
                                 </h3>
                                 <StatusPill status={row.status} />
+                                <TrackBadge track={row.track} />
                               </div>
 
                               <p className="mt-1 truncate text-[12.5px] font-medium text-bean-muted">
@@ -370,6 +385,19 @@ export default function SignupRequestsPage() {
                             }
                           />
                         </div>
+
+                        {row.status === 'PENDING' && (
+                          <label className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-bean-line bg-bean-card2/40 px-3.5 py-2.5">
+                            <span className="font-mono-ui text-[10px] font-bold uppercase tracking-[0.08em] text-bean-muted">
+                              Track on approval
+                            </span>
+                            <TrackSelect
+                              value={trackChoice[row.id] ?? row.track}
+                              onChange={(next) => setTrackChoice((prev) => ({ ...prev, [row.id]: next }))}
+                              className="rounded-lg border border-bean-line bg-bean-card px-2.5 py-1.5 text-[12.5px] font-semibold text-bean-ink"
+                            />
+                          </label>
+                        )}
 
                         {row.status === 'PENDING' && isConfirming && (
                           <div className="mt-4 rounded-2xl border border-bean-live/30 bg-bean-live/[0.06] p-3.5">

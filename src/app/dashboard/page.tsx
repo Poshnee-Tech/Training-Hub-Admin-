@@ -30,7 +30,8 @@ import AdminSidebar from '@/components/layout/AdminSidebar';
 import RadialGauge, { toneForScore, type GaugeTone } from '@/components/admin/RadialGauge';
 import LiveFloor from '@/components/admin/LiveFloor';
 import { useAuthStore } from '@/store/auth.store';
-import { admin } from '@/lib/api';
+import { admin, type Track } from '@/lib/api';
+import { TrackBadge, trackLabel } from '@/components/ui/Track';
 import { formatDate } from '@/lib/utils';
 
 /** Staggered entrance helper — one shared rise keyframe, per-card delay. */
@@ -199,6 +200,37 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
+            {/* ── tracks side by side: CSR and Self Verifier are never mixed ── */}
+            {Array.isArray(data.byTrack) && (
+              <div className="mb-6 grid gap-4 md:grid-cols-2">
+                {data.byTrack.map((t: { track: Track; agents: number; activeAgents: number; callsThisWeek: number; averageScore: number }) => (
+                  <section key={t.track} className="air-panel rounded-[20px] border p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <h2 className="text-[15px] font-bold text-air-text">{trackLabel(t.track)}</h2>
+                      <TrackBadge track={t.track} />
+                    </div>
+                    <dl className="grid grid-cols-3 gap-3">
+                      <div>
+                        <dt className="font-mono-ui text-[9.5px] uppercase tracking-[0.1em] text-air-faint">Agents</dt>
+                        <dd className="mt-1 text-[20px] font-bold text-air-text">
+                          {t.activeAgents}
+                          <span className="text-[12px] font-semibold text-air-muted"> / {t.agents}</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-mono-ui text-[9.5px] uppercase tracking-[0.1em] text-air-faint">Calls this week</dt>
+                        <dd className="mt-1 text-[20px] font-bold text-air-text">{t.callsThisWeek}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-mono-ui text-[9.5px] uppercase tracking-[0.1em] text-air-faint">Avg score</dt>
+                        <dd className="mt-1 text-[20px] font-bold text-air-text">{Math.round(t.averageScore)}%</dd>
+                      </div>
+                    </dl>
+                  </section>
+                ))}
+              </div>
+            )}
+
             {/* ── stat tiles ───────────────────────────────── */}
             <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <StatTile
@@ -1076,8 +1108,9 @@ function AgentRow({
             <p className="truncate text-[13.5px] font-semibold text-air-text">
               {agent.user?.firstName} {agent.user?.lastName}
             </p>
-            <p className="font-mono-ui text-[9.5px] uppercase tracking-[0.1em] text-air-faint">
+            <p className="flex items-center gap-2 font-mono-ui text-[9.5px] uppercase tracking-[0.1em] text-air-faint">
               {agent.totalCalls} calls
+              <TrackBadge track={agent.user?.track} />
             </p>
           </div>
         </div>

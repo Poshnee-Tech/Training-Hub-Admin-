@@ -5,6 +5,7 @@ import Link from 'next/link';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 import { useAuthStore } from '@/store/auth.store';
 import { admin } from '@/lib/api';
+import { TRACK_OPTIONS, TrackBadge } from '@/components/ui/Track';
 import { formatDate } from '@/lib/utils';
 import AgentSearch, { type AgentOption } from '@/components/ui/AgentSearch';
 
@@ -62,7 +63,7 @@ export default function CallsPage() {
 
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ campaign: '', status: '' });
+  const [filters, setFilters] = useState({ campaign: '', status: '', track: '' });
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
   const [error, setError] = useState('');
@@ -84,7 +85,7 @@ export default function CallsPage() {
     if (!token) return;
     void loadCalls();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, page, filters.campaign, filters.status, search, agent]);
+  }, [token, page, filters.campaign, filters.status, filters.track, search, agent]);
 
   // Settle the typing before asking the server.
   useEffect(() => {
@@ -112,6 +113,7 @@ export default function CallsPage() {
 
       if (filters.campaign) params.campaign = filters.campaign;
       if (filters.status) params.status = filters.status;
+      if (filters.track) params.track = filters.track;
       // An id beats the text it came from: one person exactly, not a LIKE.
       if (agent) params.agentId = agent.id;
       else if (search) params.search = search;
@@ -126,7 +128,7 @@ export default function CallsPage() {
     }
   }
 
-  const hasFilters = !!filters.campaign || !!filters.status || !!search || !!agent;
+  const hasFilters = !!filters.campaign || !!filters.status || !!filters.track || !!search || !!agent;
 
   const pageStats = useMemo(() => {
     const completed = calls.filter((call) => call.status === 'COMPLETED').length;
@@ -319,11 +321,28 @@ export default function CallsPage() {
                 </select>
               </div>
 
+              <div className="min-w-0 flex-1">
+                <Label>Track</Label>
+                <select
+                  className={`${FIELD} w-full xl:max-w-[220px]`}
+                  value={filters.track}
+                  onChange={(event) => {
+                    setFilters((current) => ({ ...current, track: event.target.value }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All tracks</option>
+                  {TRACK_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
               {hasFilters && (
                 <button
                   type="button"
                   onClick={() => {
-                    setFilters({ campaign: '', status: '' });
+                    setFilters({ campaign: '', status: '', track: '' });
                     // The search is a filter too: leaving it behind makes the
                     // button look broken, since the list stays filtered.
                     setQuery('');
@@ -399,8 +418,11 @@ export default function CallsPage() {
                               </span>
 
                               <span className="min-w-0">
-                                <span className="block truncate text-[13px] font-semibold text-bean-ink">
-                                  {fullName || 'Unknown agent'}
+                                <span className="flex items-center gap-1.5">
+                                  <span className="block truncate text-[13px] font-semibold text-bean-ink">
+                                    {fullName || 'Unknown agent'}
+                                  </span>
+                                  <TrackBadge track={call.track} />
                                 </span>
 
                                 {call.user?.email && (
@@ -530,7 +552,7 @@ export default function CallsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setFilters({ campaign: '', status: '' });
+                        setFilters({ campaign: '', status: '', track: '' });
                         setQuery('');
                         setSearch('');
                         setAgent(null);

@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 import { useAuthStore } from '@/store/auth.store';
-import { admin, assignmentsExtra } from '@/lib/api';
+import { admin, assignmentsExtra, type Track } from '@/lib/api';
+import { TrackBadge, TrackSelect } from '@/components/ui/Track';
 import { formatDate } from '@/lib/utils';
 import { useQuietPoll } from '@/lib/use-quiet-poll';
 
@@ -194,8 +195,24 @@ export default function AgentDetailPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
+  const [trackBusy, setTrackBusy] = useState(false);
 
   useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
+
+  /** New assignments and calls use the new track; past calls keep theirs. */
+  async function changeTrack(next: Track) {
+    if (!token || !agent || next === (agent.track ?? 'CSR')) return;
+    setTrackBusy(true);
+    try {
+      await admin.updateAgent(token, agent.id, { track: next });
+      setAgent((a: any) => ({ ...a, track: next }));
+      setNotice('Track changed. New assignments and calls use it; past calls keep the track they were made under.');
+    } catch (err: any) {
+      setNotice(err.message || 'Could not change the track.');
+    } finally {
+      setTrackBusy(false);
+    }
+  }
 
   // Breaks refresh in the background and re-render only when a break starts,
   // ends or changes; the page never reloads or jumps while it is being read.
@@ -327,6 +344,14 @@ export default function AgentDetailPage() {
                       </Pill>
                     )}
                     <Pill className="border border-ledger-line bg-ledger-bg text-ledger-muted">{calls} calls</Pill>
+                    <TrackBadge track={agent?.track} />
+                    {agent && (
+                      <TrackSelect
+                        value={agent.track ?? 'CSR'}
+                        onChange={(next) => void changeTrack(next)}
+                        className={`ledger-input rounded-lg px-2 py-1 text-[11.5px] font-semibold ${trackBusy ? 'opacity-50' : ''}`}
+                      />
+                    )}
                   </div>
                 </div>
                 <div className="flex-none border-l border-ledger-line pl-5 text-center">

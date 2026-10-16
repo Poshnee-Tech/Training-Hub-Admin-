@@ -22,7 +22,8 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { admin } from '@/lib/api';
+import { admin, type Track } from '@/lib/api';
+import { TRACK_OPTIONS } from '@/components/ui/Track';
 
 export type Agent = { id: string; firstName: string; lastName: string; email: string };
 
@@ -45,15 +46,20 @@ export default function AnalyticsFilters({
   token,
   campaign,
   agent,
+  track,
   onCampaign,
   onAgent,
+  onTrack,
   busy,
 }: {
   token: string | null;
   campaign: string;
   agent: Agent | null;
+  /** '' means both tracks. */
+  track: Track | '';
   onCampaign: (next: string) => void;
   onAgent: (next: Agent | null) => void;
+  onTrack: (next: Track | '') => void;
   /** True while the page is refetching, so the bar can say so. */
   busy: boolean;
 }) {
@@ -72,6 +78,29 @@ export default function AnalyticsFilters({
                 key={option.value || 'all'}
                 type="button"
                 onClick={() => onCampaign(option.value)}
+                aria-pressed={active}
+                className={`rounded-full px-3.5 py-[7px] text-[12.5px] font-semibold transition-colors ${
+                  active
+                    ? 'bg-air-signal text-white'
+                    : 'air-hairline border text-air-muted hover:border-air-signal/40 hover:text-air-text'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+
+      <Field label="Track">
+        <div className="flex flex-wrap gap-1">
+          {[{ value: '' as Track | '', label: 'All' }, ...TRACK_OPTIONS].map((option) => {
+            const active = track === option.value;
+            return (
+              <button
+                key={option.value || 'all'}
+                type="button"
+                onClick={() => onTrack(option.value)}
                 aria-pressed={active}
                 className={`rounded-full px-3.5 py-[7px] text-[12.5px] font-semibold transition-colors ${
                   active
