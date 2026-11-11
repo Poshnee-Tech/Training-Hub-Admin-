@@ -305,15 +305,13 @@ export default function SecretsPage() {
                         />
                       ))}
                       {added.map((key) => (
-                        <tr key={key} className="border-b border-gray-100 bg-emerald-50/40">
-                          <td className="px-5 py-3 font-mono text-[13px] font-semibold text-gray-900">{key} <span className="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-800">new</span></td>
-                          <td className="px-3 py-3 text-gray-400">—</td>
-                          <td className="px-3 py-3 text-gray-700">{'•'.repeat(8)}</td>
-                          <td className="px-5 py-3 text-right">
-                            <SaveButton disabled={locked} onSave={(pw) => saveOne(key, pw)} />
-                            <button type="button" className="ml-2 text-xs font-semibold text-gray-500 hover:text-gray-800" onClick={() => setEdit(key, undefined)}>Undo</button>
-                          </td>
-                        </tr>
+                        <AddedRowView
+                          key={key}
+                          settingKey={key}
+                          disabled={locked}
+                          onSave={(pw) => saveOne(key, pw)}
+                          onUndo={() => setEdit(key, undefined)}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -484,52 +482,79 @@ function ValueInput({
 }
 
 /**
- * "Save" on one row. First click asks for the password right there; the
- * second saves. A problem (wrong password, server would not start, …) shows
- * under it and the typed value is kept so it can be fixed.
+ * The password confirmation for one row's Save, drawn as its OWN table row
+ * under that setting. It used to open inside the narrow actions column and
+ * spilled left over the value box. A problem (wrong password, server would
+ * not start, …) shows here and the typed value is kept so it can be fixed.
  */
-function SaveButton({ disabled, onSave }: { disabled: boolean; onSave: (password: string) => Promise<string | null> }) {
-  const [open, setOpen] = useState(false);
+function SaveConfirmRow({ settingKey, onSave, onDone }: {
+  settingKey: string;
+  onSave: (password: string) => Promise<string | null>;
+  onDone: () => void;
+}) {
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
 
-  if (!open) {
-    return (
-      <button type="button" className="btn-primary !px-3 !py-1.5 text-xs" disabled={disabled} onClick={() => { setOpen(true); setProblem(''); }}>
-        Save
-      </button>
-    );
-  }
   return (
-    <form
-      className="mt-1 inline-flex flex-col items-end gap-1.5 text-left"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!pw) return;
-        setBusy(true);
-        const result = await onSave(pw);
-        setBusy(false);
-        if (result) { setProblem(result); return; }
-        setOpen(false);
-        setPw('');
-      }}
-    >
-      <div className="flex items-center gap-1.5">
-        <input
-          className="input !w-44 !py-1.5 text-xs"
-          type="password"
-          autoComplete="current-password"
-          placeholder="Your password"
-          autoFocus
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-        />
-        <button type="submit" className="btn-primary !px-3 !py-1.5 text-xs" disabled={busy || !pw}>{busy ? 'Saving…' : 'Confirm'}</button>
-        <button type="button" className="text-xs font-semibold text-gray-500 hover:text-gray-800" onClick={() => { setOpen(false); setPw(''); setProblem(''); }}>Cancel</button>
-      </div>
-      {problem && <p className="max-w-xs whitespace-pre-wrap text-xs text-red-700">{problem}</p>}
-    </form>
+    <tr className="border-b border-gray-100 bg-amber-50/40">
+      <td colSpan={4} className="px-5 pb-3 pt-0">
+        <form
+          className="flex flex-wrap items-center justify-end gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!pw) return;
+            setBusy(true);
+            const result = await onSave(pw);
+            setBusy(false);
+            if (result) { setProblem(result); return; }
+            onDone();
+          }}
+        >
+          <span className="text-xs text-gray-600">Save <strong className="font-mono">{settingKey}</strong> — confirm with your password:</span>
+          <input
+            className="input !w-56 !py-1.5 text-xs"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            autoFocus
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+          />
+          <button type="submit" className="btn-primary !px-3 !py-1.5 text-xs" disabled={busy || !pw}>{busy ? 'Saving…' : 'Confirm'}</button>
+          <button type="button" className="text-xs font-semibold text-gray-500 hover:text-gray-800" disabled={busy} onClick={onDone}>Cancel</button>
+          {problem && <p className="w-full whitespace-pre-wrap text-right text-xs text-red-700">{problem}</p>}
+        </form>
+      </td>
+    </tr>
+  );
+}
+
+const saveButtonClass = 'btn-primary !px-3 !py-1.5 text-xs';
+
+/** A setting added on this page and not saved yet. */
+function AddedRowView({ settingKey, disabled, onSave, onUndo }: {
+  settingKey: string;
+  disabled: boolean;
+  onSave: (password: string) => Promise<string | null>;
+  onUndo: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <>
+      <tr className={`bg-emerald-50/40 ${confirming ? '' : 'border-b border-gray-100'}`}>
+        <td className="px-5 py-3 font-mono text-[13px] font-semibold text-gray-900">{settingKey} <span className="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-800">new</span></td>
+        <td className="px-3 py-3 text-gray-400">—</td>
+        <td className="px-3 py-3 text-gray-700">{'•'.repeat(8)}</td>
+        <td className="px-5 py-3">
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" className={saveButtonClass} disabled={disabled || confirming} onClick={() => setConfirming(true)}>Save</button>
+            <button type="button" className="text-xs font-semibold text-gray-500 hover:text-gray-800" onClick={onUndo}>Undo</button>
+          </div>
+        </td>
+      </tr>
+      {confirming && <SaveConfirmRow settingKey={settingKey} onSave={onSave} onDone={() => setConfirming(false)} />}
+    </>
   );
 }
 
@@ -549,12 +574,14 @@ function SettingRowView({
   // A new value typed, or marked for removal: either can be saved from the row.
   const changed = edit === null || (typeof edit === 'string' && edit.length > 0);
   const removing = edit === null;
+  const [confirming, setConfirming] = useState(false);
   const current = setting.secret
     ? (setting.last4 ? `••••${setting.last4}` : `${'•'.repeat(Math.min(setting.length, 8)) || '(empty)'}`)
     : (setting.value || '(empty)');
 
   return (
-    <tr className={`border-b border-gray-100 ${removing ? 'bg-red-50/50' : typeof edit === 'string' && edit ? 'bg-amber-50/40' : ''}`}>
+    <>
+    <tr className={`${confirming && changed ? '' : 'border-b border-gray-100'} ${removing ? 'bg-red-50/50' : typeof edit === 'string' && edit ? 'bg-amber-50/40' : ''}`}>
       <td className="px-5 py-3 font-mono text-[13px] font-semibold text-gray-900">
         {setting.key}
         {setting.locked && <div className="font-sans text-[11px] font-normal text-gray-500">Set by the server; not editable here</div>}
@@ -591,7 +618,9 @@ function SettingRowView({
             or not it has each button. */}
         <div className="flex items-start justify-end gap-2">
           <div className="flex min-w-[64px] justify-end">
-            {changed && !setting.locked && <SaveButton disabled={disabled} onSave={onSave} />}
+            {changed && !setting.locked && (
+              <button type="button" className={saveButtonClass} disabled={disabled || confirming} onClick={() => setConfirming(true)}>Save</button>
+            )}
           </div>
           <div className="flex w-[60px] justify-end">
             {setting.test && !removing && (
@@ -612,5 +641,9 @@ function SettingRowView({
         </div>
       </td>
     </tr>
+    {confirming && changed && (
+      <SaveConfirmRow settingKey={setting.key} onSave={onSave} onDone={() => setConfirming(false)} />
+    )}
+    </>
   );
 }
