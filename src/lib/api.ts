@@ -881,3 +881,66 @@ export interface FloorView {
   counts: { onCall: number; onBreak: number; notOnCall: number; total: number };
   agents: FloorAgent[];
 }
+
+/* ── Server settings (hidden Super Admin page /secrets) ───────────────────── */
+
+export type SecretState =
+  | 'requested' | 'waiting_for_calls' | 'applying' | 'applied'
+  | 'rolled_back' | 'timed_out' | 'failed' | 'cancelled';
+
+export interface SecretSetting {
+  key: string;
+  secret: boolean;
+  /** Present only for settings that are not credentials. */
+  value?: string;
+  last4?: string;
+  length: number;
+  locked: boolean;
+  /** What the Test button checks, when there is one. */
+  test?: string;
+}
+
+export interface SecretStatus {
+  id: string;
+  state: SecretState;
+  message?: string;
+  keys?: string[];
+  liveCalls?: number;
+  updatedAt: string;
+  stuck?: boolean;
+}
+
+export interface SecretChangeRecord {
+  id: string;
+  actorEmail: string;
+  changes: Array<{ key: string; action: 'set' | 'removed'; last4?: string }>;
+  state: SecretState | string;
+  message: string | null;
+  createdAt: string;
+}
+
+export interface SecretsOverview {
+  mode: 'helper' | 'file' | 'off';
+  settings: SecretSetting[];
+  knownKeys: string[];
+  testable: Record<string, string>;
+  status: SecretStatus | null;
+  history: SecretChangeRecord[];
+  busy: boolean;
+}
+
+/** `{ KEY: "new value" }` sets; `{ KEY: null }` removes. */
+export type SecretChanges = Record<string, string | null>;
+
+export const secrets = {
+  overview: (token: string) => request<{ data: SecretsOverview }>('/api/admin/secrets', { token }),
+  test: (token: string, key: string, value?: string, changes?: SecretChanges) =>
+    request<{ data: { ok: boolean; status?: number; message: string } }>('/api/admin/secrets/test', {
+      method: 'POST', token, body: { key, ...(value !== undefined ? { value } : {}), ...(changes ? { changes } : {}) },
+    }),
+  check: (token: string, changes: SecretChanges) =>
+    request<{ data: { problems: string[]; bootProblems: string[] } }>('/api/admin/secrets/check', { method: 'POST', token, body: { changes } }),
+  apply: (token: string, changes: SecretChanges, password: string) =>
+    request<{ data: SecretStatus }>('/api/admin/secrets/apply', { method: 'POST', token, body: { changes, password } }),
+  cancel: (token: string) => request<any>('/api/admin/secrets/request', { method: 'DELETE', token }),
+};
